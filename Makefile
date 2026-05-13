@@ -1,2 +1,2 @@
 main: game.c
-	gcc -Wall -Wextra game.c -o game -lraylib && ./game
+	gcc -Wall -Wextra -Idependencies game.c -o "Space Shooter" -Ldependencies -lraylib -lm

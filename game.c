@@ -41,7 +41,7 @@ void makeBullet(Ufo *player, Projectile *bullets) {
     }
 }
 
-void fireBullet(Projectile *bullets, int bullets_count) {
+void fireBullet(Projectile *bullets) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(bullets[i].projectile_pos_start.y > 0) {
             Vector2 start = bullets[i].projectile_pos_start;
@@ -121,7 +121,7 @@ int main() {
         {
             ClearBackground(BLACK);
             DrawTextureEx(player.ufo_texture, player.ufo_pos, 0.0f, UFO_SCALE, WHITE);
-            fireBullet(bullets, bullets_count);
+            fireBullet(bullets);
         }
         EndDrawing();
     }
