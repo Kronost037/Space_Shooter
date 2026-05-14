@@ -7,4 +7,5 @@ A 2D space shooter game written in C using [Raylib](https://github.com/raysan5/r
 ```console
 ~$ make
 ```
-Needed parts of Raylib are shipped with the game in the Dependencies Directory. 
+
+Raylib is needed for compilation of the game.
