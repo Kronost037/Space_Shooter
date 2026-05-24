@@ -47,8 +47,8 @@ void initializeGame(Game *game) {
 void makeBullet(Entity *player, Projectile *bullets) {
     Projectile bullet = {0};
     
-    float halfPlayerWidth = (player->entity_texture.width * PLAYER_SCALE) / 2.0f;
-    float halfPlayerHeight = (player->entity_texture.height * PLAYER_SCALE) / 2.0f;
+    float halfPlayerWidth = ((float)player->entity_texture.width * PLAYER_SCALE) / 2.0f;
+    float halfPlayerHeight = ((float)player->entity_texture.height * PLAYER_SCALE) / 2.0f;
     bullet.projectile_pos_start = (Vector2){ player->entity_pos.x + halfPlayerWidth,
                                              player->entity_pos.y + halfPlayerHeight };
     
@@ -73,7 +73,7 @@ void makeBullet(Entity *player, Projectile *bullets) {
     }
 }
 
-void fireBullet(Projectile *bullets) {
+void drawBullet(Projectile *bullets) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(bullets[i].active) {
             Vector2 bullet_end = {
@@ -108,9 +108,10 @@ Vector2 getPlayerDirection() {
 void handleCollision(Game *game) {
     Entity *player = &game->player;
     
-    float entity_scaledWidth = player->entity_texture.width * PLAYER_SCALE;
-    float entity_scaledHeight = player->entity_texture.height * PLAYER_SCALE;
-    
+    float entity_scaledWidth = (float)player->entity_texture.width * PLAYER_SCALE;
+    float entity_scaledHeight = (float)player->entity_texture.height * PLAYER_SCALE;
+
+    // Boundary for Player
     if (player->entity_pos.x < 0)
         player->entity_pos.x = 0;
     if (player->entity_pos.x > SCREEN_WIDTH - entity_scaledWidth)
@@ -119,7 +120,9 @@ void handleCollision(Game *game) {
         player->entity_pos.y = 0;
     if (player->entity_pos.y > SCREEN_HEIGHT - entity_scaledHeight)
         player->entity_pos.y = SCREEN_HEIGHT - entity_scaledHeight;
-    
+
+
+    // Boundary for Bullets
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (player->entity_bullets[i].projectile_pos_start.y < 0 ||
             player->entity_bullets[i].projectile_pos_start.y > SCREEN_HEIGHT ||
@@ -137,14 +140,19 @@ void runPhysics(Game *game) {
     Entity *player = &game->player;
     
     player->entity_dir = getPlayerDirection();
-    
+
+
+    // Update Player Position
     player->entity_pos.x += player->entity_dir.x * player->entity_speed.x * delta_time;
     player->entity_pos.y += player->entity_dir.y * player->entity_speed.y * delta_time;
 
+
+    
     if(IsKeyPressed(KEY_SPACE)) {
         makeBullet(player, player->entity_bullets);
     }
-    
+
+    // Update Bullet Position
     for(int i = 0; i < MAX_BULLETS; i++) {
         Projectile *bullet = &player->entity_bullets[i];
         if(bullet->active) {
@@ -169,13 +177,16 @@ int main() {
         BeginDrawing();
         {
             ClearBackground(BLACK);
-            DrawTextureEx(game.sky_texture, (Vector2){0, 0}, 0, 1.0f * SCREEN_WIDTH / game.sky_texture.height, WHITE);
+
+            DrawTextureEx(game.sky_texture, (Vector2){0, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
+
             DrawTextureEx(game.player.entity_texture, game.player.entity_pos, 0.0f, PLAYER_SCALE, WHITE);
-            fireBullet(game.player.entity_bullets);
+            drawBullet(game.player.entity_bullets);
         }
         EndDrawing();
     }
 
+    UnloadTexture(game.sky_texture);
     UnloadTexture(game.player.entity_texture);
     CloseWindow();
 	return 0;
