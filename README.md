@@ -1,11 +1,12 @@
 # Space Shooter
 
-A 2D space shooter game written in C using [Raylib](https://github.com/raysan5/raylib?utm_source=chatgpt.com) for graphics and window management.
+An arcade 2D-game focused on surviving and shooting spaceships to score points. The game is written entirely in C using [Raylib](https://github.com/raysan5/raylib?utm_source=chatgpt.com) for graphics and window management.
 
-### Build: 
-
+### Quick Start: 
 ```console
-~$ make
+~$ gcc build.c -o build
+~$ ./build
 ```
 
-Raylib is needed for compilation of the game.
+The game uses it's own build system (./build). You can download and link dependencies (raylib) using it.
+```~$ ./build --help``` for more
