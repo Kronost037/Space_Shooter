@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 const char *release_build = 
-		"gcc -std=c17 -o2 "
+		"gcc -std=c17 -O2 "
 		"-Wall -Wextra "
 		"game.c -o \"Space Shooter\" "
 		"-lraylib -lm";
