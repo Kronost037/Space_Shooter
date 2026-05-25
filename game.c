@@ -3,6 +3,7 @@
 #include <raylib.h>
 #include <raymath.h>
 
+
 #define SCREEN_WIDTH 1500
 #define SCREEN_HEIGHT 900
 #define PLAYER_SCALE 0.03f
