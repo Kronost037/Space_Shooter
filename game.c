@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <raylib.h>
 #include <raymath.h>
@@ -8,6 +9,11 @@
 #define SCREEN_HEIGHT 900
 #define PLAYER_SCALE 0.03f
 #define MAX_BULLETS 10
+
+typedef enum {
+    STATE_MENU = 0,
+    STATE_GAME
+} State;
 
 typedef struct S_projectile {
     bool active;
@@ -34,15 +40,39 @@ void initializePlayer(Entity *player) {
     player->entity_dir = (Vector2){0};
 }
 
+typedef struct S_menu {
+    Rectangle startButton;
+    Rectangle exitButton;
+    Vector2 mousePos;
+} Menu;
+
+void initializeMenu(Menu *menu) {
+    menu->startButton = (Rectangle){ (float)SCREEN_WIDTH/2 - 100, (float)SCREEN_HEIGHT/2 - 40, 200, 50 };
+    menu->exitButton = (Rectangle){ (float)SCREEN_WIDTH/2 - 100, (float)SCREEN_HEIGHT/2 + 30, 200, 50 };
+    menu->mousePos = (Vector2){ 0.0f, 0.0f };
+}
+
 typedef struct S_game {
+    bool quit;
+    State currentState;
+    Menu menu;
     Texture2D sky_texture;
     Entity player;
+    Font font;
 } Game;
 
 void initializeGame(Game *game) {
+    game->quit = false;
+    game->currentState = STATE_MENU;
+
     game->player = (Entity){0};
     initializePlayer(&game->player);
+    
+    game->menu = (Menu){0};
+    initializeMenu(&game->menu);
+
     game->sky_texture = LoadTexture("Assets/sky.png");
+    game->font = LoadFontEx("Assets/font/KnightWarrior.otf", 40, NULL, 0);
 }
 
 void makeBullet(Entity *player, Projectile *bullets) {
@@ -165,28 +195,98 @@ void runPhysics(Game *game) {
     handleCollision(game);
 }
 
+void handleGameState(Game *game) {
+    Menu *menu = &game->menu;
+    menu->mousePos = GetMousePosition();
+
+    switch (game->currentState) {
+    case STATE_MENU: {
+        if (CheckCollisionPointRec(menu->mousePos, menu->startButton)) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                game->currentState = STATE_GAME;
+            }
+        }
+        
+        if (CheckCollisionPointRec(menu->mousePos, menu->exitButton)) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                game->quit = true;
+            }
+        }
+    } break;
+        
+    case STATE_GAME: {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            game->currentState = STATE_MENU;
+        }
+    } break;
+        
+    default : fprintf(stderr, "UNREACHABLE: Not a Valid GAMESTATE.\n");
+    }
+}
+
+void drawMenu(Game *game) {
+    Menu *menu = &game->menu;
+    
+    float fontSize = 80.0f;
+    float fontSpacing = 4.0f;
+    Vector2 textSize = MeasureTextEx(game->font, "SPACE SHOOTER", fontSize, fontSpacing);
+    Vector2 textPos = {(float)SCREEN_WIDTH/2 - textSize.x/2, 200};
+    DrawTextEx(game->font, "SPACE SHOOTER", textPos, fontSize, fontSpacing, (Color){ 145, 30, 230, 255});
+    
+    bool mouseOverStart = CheckCollisionPointRec(menu->mousePos, menu->startButton);
+    DrawRectangleRec(menu->startButton, mouseOverStart ? GRAY : LIGHTGRAY);
+    
+    fontSize = 42.0f;
+    fontSpacing = 2.0f;
+    textSize = MeasureTextEx(game->font, "START", fontSize, fontSpacing);
+    textPos = (Vector2){menu->startButton.x + 100 - textSize.x/2, menu->startButton.y + 5};
+    DrawTextEx(game->font, "START", textPos, fontSize, fontSpacing, mouseOverStart ? DARKGRAY :  BLACK);
+    
+    bool mouseOverExit = CheckCollisionPointRec(menu->mousePos, menu->exitButton);
+    DrawRectangleRec(menu->exitButton, mouseOverExit ? GRAY : LIGHTGRAY);
+    
+    textSize = MeasureTextEx(game->font, "EXIT", fontSize, fontSpacing);
+    textPos = (Vector2){menu->exitButton.x + 100 - textSize.x/2, menu->exitButton.y + 5};
+    DrawTextEx(game->font, "EXIT", textPos, fontSize, fontSpacing, mouseOverExit ? DARKGRAY :  BLACK);
+}
+
 int main() {
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter");
-
+    SetExitKey(KEY_NULL);
+        
     Game game = {0};
     initializeGame(&game);
 
-    while(!WindowShouldClose()) {
-        
-        runPhysics(&game);
+    float backgroundOffset = 0; // For sliding bg
+    while(!WindowShouldClose() && !game.quit) {
+
+        handleGameState(&game);
+        if (game.currentState == STATE_GAME) runPhysics(&game);
 
         BeginDrawing();
         {
             ClearBackground(BLACK);
 
-            DrawTextureEx(game.sky_texture, (Vector2){0, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
-
-            DrawTextureEx(game.player.entity_texture, game.player.entity_pos, 0.0f, PLAYER_SCALE, WHITE);
-            drawBullet(game.player.entity_bullets);
+            DrawTextureEx(game.sky_texture, (Vector2){backgroundOffset, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
+    //        DrawTextureEx(game.sky_texture, (Vector2){SCREEN_WIDTH - backgroundOffset, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
+            
+            switch(game.currentState) {
+            case STATE_MENU: {
+                drawMenu(&game);
+            } break;
+                
+            case STATE_GAME: {
+                DrawTextureEx(game.player.entity_texture, game.player.entity_pos, 0.0f, PLAYER_SCALE, WHITE);
+                drawBullet(game.player.entity_bullets);
+            } break;
+                
+            default : fprintf(stderr, "UNREACHABLE: Not a Valid GAMESTATE.\n");
+            }
         }
         EndDrawing();
     }
 
+    UnloadFont(game.font);
     UnloadTexture(game.sky_texture);
     UnloadTexture(game.player.entity_texture);
     CloseWindow();
