@@ -1,0 +1,31 @@
+name: ubuntu-build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt update && sudo apt install -y build-essential wget tar
+
+      - name: Compile build helper
+        run: gcc build.c -o build
+
+      - name: Try normal build
+        id: build_try
+        run: ./build
+        continue-on-error: true
+
+      - name: Download raylib if needed
+        if: steps.build_try.outcome == 'failure'
+        run: ./build --download raylib
+
+      - name: Build with local raylib
+        if: steps.build_try.outcome == 'failure'
+        run: ./build
