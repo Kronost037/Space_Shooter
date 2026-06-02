@@ -41,15 +41,20 @@ void initializePlayer(Entity *player) {
 }
 
 typedef struct S_menu {
+    Music bg_song;
     Rectangle startButton;
     Rectangle exitButton;
     Vector2 mousePos;
+    Texture2D stars;
+    float timer;
 } Menu;
 
 void initializeMenu(Menu *menu) {
+    menu->bg_song = LoadMusicStream("Assets/menu.mp3");
     menu->startButton = (Rectangle){ (float)SCREEN_WIDTH/2 - 100, (float)SCREEN_HEIGHT/2 - 40, 200, 50 };
     menu->exitButton = (Rectangle){ (float)SCREEN_WIDTH/2 - 100, (float)SCREEN_HEIGHT/2 + 30, 200, 50 };
     menu->mousePos = (Vector2){ 0.0f, 0.0f };
+    menu->stars = LoadTexture("Assets/star.png");
 }
 
 typedef struct S_game {
@@ -165,7 +170,7 @@ void handleCollision(Game *game) {
     }
 }
 
-void runPhysics(Game *game) {
+void runGamePhysics(Game *game) {
     float delta_time = GetFrameTime();
 
     Entity *player = &game->player;
@@ -193,6 +198,15 @@ void runPhysics(Game *game) {
     }
 
     handleCollision(game);
+}
+
+void runMenuPhysics(Game *game) {
+    Menu *menu = &game->menu;
+
+    UpdateMusicStream(menu->bg_song);
+    menu->timer += GetFrameTime();
+
+    if(menu->timer > 100.0f) menu->timer = 0;
 }
 
 void handleGameState(Game *game) {
@@ -224,23 +238,37 @@ void handleGameState(Game *game) {
     }
 }
 
+
 void drawMenu(Game *game) {
     Menu *menu = &game->menu;
+
+    if((int)menu->timer % 13 == 0)
+        DrawTextureEx(game->menu.stars, (Vector2){100, 10}, 0.0f, 0.08f,  SKYBLUE);
+    if((int)menu->timer % 7 == 0)
+        DrawTextureEx(game->menu.stars, (Vector2){SCREEN_WIDTH - 200, 10}, 0.0f, 0.08f,  PURPLE);
+    if((int)menu->timer % 23 == 0)
+        DrawTextureEx(game->menu.stars, (Vector2){200, 100}, 0.0f, 0.08f,  BLUE);
+    if((int)menu->timer % 9 == 0)
+        DrawTextureEx(game->menu.stars, (Vector2){SCREEN_WIDTH - 300, 450}, 0.0f, 0.1f,  PURPLE);
+    if((int)menu->timer % 19 == 0)
+        DrawTextureEx(game->menu.stars, (Vector2){190, 400}, 0.0f, 0.1f,  GRAY);
     
     float fontSize = 80.0f;
     float fontSpacing = 4.0f;
     Vector2 textSize = MeasureTextEx(game->font, "SPACE SHOOTER", fontSize, fontSpacing);
     Vector2 textPos = {(float)SCREEN_WIDTH/2 - textSize.x/2, 200};
     DrawTextEx(game->font, "SPACE SHOOTER", textPos, fontSize, fontSpacing, (Color){ 145, 30, 230, 255});
+
     
     bool mouseOverStart = CheckCollisionPointRec(menu->mousePos, menu->startButton);
     DrawRectangleRec(menu->startButton, mouseOverStart ? GRAY : LIGHTGRAY);
-    
+
     fontSize = 42.0f;
     fontSpacing = 2.0f;
     textSize = MeasureTextEx(game->font, "START", fontSize, fontSpacing);
     textPos = (Vector2){menu->startButton.x + 100 - textSize.x/2, menu->startButton.y + 5};
     DrawTextEx(game->font, "START", textPos, fontSize, fontSpacing, mouseOverStart ? DARKGRAY :  BLACK);
+
     
     bool mouseOverExit = CheckCollisionPointRec(menu->mousePos, menu->exitButton);
     DrawRectangleRec(menu->exitButton, mouseOverExit ? GRAY : LIGHTGRAY);
@@ -253,23 +281,27 @@ void drawMenu(Game *game) {
 int main() {
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter");
     SetExitKey(KEY_NULL);
-        
+
+    InitAudioDevice();
+    
     Game game = {0};
     initializeGame(&game);
 
-    float backgroundOffset = 0; // For sliding bg
+    PlayMusicStream(game.menu.bg_song);
+    
     while(!WindowShouldClose() && !game.quit) {
 
         handleGameState(&game);
-        if (game.currentState == STATE_GAME) runPhysics(&game);
 
+        if (game.currentState == STATE_GAME) runGamePhysics(&game);
+        else if (game.currentState == STATE_MENU) runMenuPhysics(&game);
+        
         BeginDrawing();
         {
             ClearBackground(BLACK);
 
-            DrawTextureEx(game.sky_texture, (Vector2){backgroundOffset, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
-    //        DrawTextureEx(game.sky_texture, (Vector2){SCREEN_WIDTH - backgroundOffset, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
-            
+            DrawTextureEx(game.sky_texture, (Vector2){0, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
+           
             switch(game.currentState) {
             case STATE_MENU: {
                 drawMenu(&game);
@@ -286,6 +318,9 @@ int main() {
         EndDrawing();
     }
 
+
+    UnloadMusicStream(game.menu.bg_song);
+    CloseAudioDevice();
     UnloadFont(game.font);
     UnloadTexture(game.sky_texture);
     UnloadTexture(game.player.entity_texture);
