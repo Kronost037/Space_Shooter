@@ -5,8 +5,7 @@
 
 #define CMD_SIZE 4096
 
-static const char *raylib_url =
-    "https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip";
+#define raylib_url "https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip"
 
 static int exists(const char *path)
 {
@@ -41,8 +40,9 @@ static void fetch_raylib(void)
 
     puts("[*] Downloading Raylib...");
 
-    if (system("wget -q -O raylib-6.0.zip "
-               "https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip"))
+    char *cmd = "wget -O raylib-6.0.zip "raylib_url; 
+
+    if (system(cmd))
     {
         puts("Failed to download Raylib.");
         return;
@@ -51,8 +51,7 @@ static void fetch_raylib(void)
     puts("[*] Building Raylib locally...");
 
     const char *build_cmd =
-        "rm -rf raylib raylib-6.0 && "
-        "unzip -q raylib-6.0.zip && "
+        "unzip raylib-6.0.zip && "
         "cd raylib-6.0 && "
         "mkdir build && "
         "cd build && "
@@ -66,7 +65,7 @@ static void fetch_raylib(void)
         "cd ../.. && "
         "rm -rf raylib-6.0 raylib-6.0.zip";
 
-    if (system(build_cmd) != 0) {
+    if (system(build_cmd)) {
         puts("Failed to build Raylib.");
         return;
     }
@@ -85,9 +84,7 @@ static int build_game(int debug)
         exists("raylib/lib/libraylib.a");
 
     if (has_local_raylib) {
-        snprintf(
-            cmd,
-            sizeof(cmd),
+        snprintf(cmd, sizeof(cmd),
             "gcc "
             "-std=c17 "
             "%s "
@@ -97,17 +94,14 @@ static int build_game(int debug)
             "-Iraylib/include "
             "-Lraylib/lib "
             "-lraylib "
-            "-lm -lpthread -ldl -lrt -lX11 "
+            "-lm -lX11 "
             "-o \"Space Shooter\"",
             debug ? "-O0 -g3" : "-O2",
-            debug
-                ? "-Wpedantic -Wconversion -Wshadow "
-                  "-Wformat=2 -fsanitize=address,undefined"
-                : "");
+            debug ? "-Wpedantic -Wconversion -Wshadow "
+                    "-Wformat=2 -fsanitize=address,undefined"
+                    : "");
     } else {
-        snprintf(
-            cmd,
-            sizeof(cmd),
+        snprintf(cmd, sizeof(cmd),
             "gcc "
             "-std=c17 "
             "%s "
