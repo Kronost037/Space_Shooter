@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include "raylib.h"
 #include "raymath.h"
 
@@ -64,6 +65,7 @@ typedef struct S_game {
     Texture2D sky_texture;
     Entity player;
     Font font;
+    float timer;
 } Game;
 
 void initializeGame(Game *game) {
@@ -76,8 +78,30 @@ void initializeGame(Game *game) {
     game->menu = (Menu){0};
     initializeMenu(&game->menu);
 
-    game->sky_texture = LoadTexture("Assets/sky.png");
     game->font = LoadFontEx("Assets/font/KnightWarrior.otf", 40, NULL, 0);
+}
+
+Vector2 getShootingDirection() {
+    Vector2 entity_dir = {0};
+    
+    if(IsKeyDown(KEY_D)) {
+        entity_dir.x += 1;    
+    }
+    if(IsKeyDown(KEY_A)) {
+        entity_dir.x -= 1;
+    }
+    if(IsKeyDown(KEY_S)) {
+        entity_dir.y += 1;
+    }
+    if(IsKeyDown(KEY_W)) {
+        entity_dir.y -= 1;
+    }
+
+    if (entity_dir.x == 0.0f && entity_dir.y == 0.0f) {
+        entity_dir.y = -1.0f; 
+    }
+    
+    return Vector2Normalize(entity_dir);
 }
 
 void makeBullet(Entity *player, Projectile *bullets) {
@@ -88,13 +112,8 @@ void makeBullet(Entity *player, Projectile *bullets) {
     bullet.projectile_pos_start = (Vector2){ player->entity_pos.x + halfPlayerWidth,
                                              player->entity_pos.y + halfPlayerHeight };
     
-    bullet.projectile_dir = player->entity_dir;
-    if(bullet.projectile_dir.x == 0 && bullet.projectile_dir.y == 0) {
-        bullet.projectile_dir.y = -1;
-    } else {
-        bullet.projectile_dir = Vector2Normalize(bullet.projectile_dir);
-    }
-
+    bullet.projectile_dir = getShootingDirection();
+    
     bullet.projectile_size = (Vector2){ 4.0f, 20.0f }; 
     
     bullet.projectile_speed = (Vector2){ player->entity_speed.x + 800.0f, player->entity_speed.y + 800.0f }; 
@@ -125,16 +144,16 @@ void drawBullet(Projectile *bullets) {
 Vector2 getPlayerDirection() {
     Vector2 entity_dir = {0};
     
-    if(IsKeyDown(KEY_D)) {
+    if(IsKeyDown(KEY_RIGHT)) {
         entity_dir.x += 1;    
     }
-    if(IsKeyDown(KEY_A)) {
+    if(IsKeyDown(KEY_LEFT)) {
         entity_dir.x -= 1;
     }
-    if(IsKeyDown(KEY_S)) {
+    if(IsKeyDown(KEY_DOWN)) {
         entity_dir.y += 1;
     }
-    if(IsKeyDown(KEY_W)) {
+    if(IsKeyDown(KEY_UP)) {
         entity_dir.y -= 1;
     }
 
@@ -173,6 +192,9 @@ void handleCollision(Game *game) {
 void runGamePhysics(Game *game) {
     float delta_time = GetFrameTime();
 
+    game->timer += delta_time;
+    if(game->timer > 100.0f) game->timer = 0;
+
     Entity *player = &game->player;
     
     player->entity_dir = getPlayerDirection();
@@ -184,7 +206,7 @@ void runGamePhysics(Game *game) {
 
 
     
-    if(IsKeyPressed(KEY_SPACE)) {
+    if(IsKeyPressed(KEY_W) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_D) || IsKeyPressed(KEY_A)) {
         makeBullet(player, player->entity_bullets);
     }
 
@@ -218,6 +240,8 @@ void handleGameState(Game *game) {
         if (CheckCollisionPointRec(menu->mousePos, menu->startButton)) {
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 game->currentState = STATE_GAME;
+                DisableCursor();
+                PauseMusicStream(menu->bg_song);
             }
         }
         
@@ -231,6 +255,8 @@ void handleGameState(Game *game) {
     case STATE_GAME: {
         if (IsKeyPressed(KEY_ESCAPE)) {
             game->currentState = STATE_MENU;
+            EnableCursor();
+            ResumeMusicStream(menu->bg_song);
         }
     } break;
         
@@ -238,44 +264,189 @@ void handleGameState(Game *game) {
     }
 }
 
+void drawBackground(float timer) {
+    DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+                           (Color){ 5, 8, 18, 255 },
+                           (Color){ 10, 14, 28, 255 });
+
+    DrawRectangle(0, 0, SCREEN_WIDTH, 120, (Color){ 0, 0, 0, 30 });
+    DrawRectangle(0, SCREEN_HEIGHT - 120, SCREEN_WIDTH, 120, (Color){ 0, 0, 0, 40 });
+
+    
+    for (int i = 0; i < 45; i++) {
+        float x = fmodf((i * 187.0f + timer * 10.0f), SCREEN_WIDTH);
+        float y = fmodf((i * 97.0f + timer * 4.0f), SCREEN_HEIGHT);
+        float r = 1.0f + (i % 3) * 0.4f;
+        int a = 70 + (i % 4) * 20;
+        DrawCircleV((Vector2){ x, y }, r, (Color){ 220, 230, 255, (unsigned char)a });
+    }
+}
 
 void drawMenu(Game *game) {
     Menu *menu = &game->menu;
 
-    if((int)menu->timer % 13 == 0)
-        DrawTextureEx(game->menu.stars, (Vector2){100, 10}, 0.0f, 0.08f,  SKYBLUE);
-    if((int)menu->timer % 7 == 0)
-        DrawTextureEx(game->menu.stars, (Vector2){SCREEN_WIDTH - 200, 10}, 0.0f, 0.08f,  PURPLE);
-    if((int)menu->timer % 23 == 0)
-        DrawTextureEx(game->menu.stars, (Vector2){200, 100}, 0.0f, 0.08f,  BLUE);
-    if((int)menu->timer % 9 == 0)
-        DrawTextureEx(game->menu.stars, (Vector2){SCREEN_WIDTH - 300, 450}, 0.0f, 0.1f,  PURPLE);
-    if((int)menu->timer % 19 == 0)
-        DrawTextureEx(game->menu.stars, (Vector2){190, 400}, 0.0f, 0.1f,  GRAY);
+    drawBackground(menu->timer);
     
-    float fontSize = 80.0f;
+    Rectangle menuPanel = {
+        SCREEN_WIDTH * 0.5f - 275.0f,
+        200.0f,
+        550.0f,
+        420.0f
+    };
+
+    float centerX = menuPanel.x + menuPanel.width * 0.5f;
+
+    menu->startButton = (Rectangle){
+        centerX - 100.0f,
+        menuPanel.y + 205.0f,
+        200.0f,
+        50.0f
+    };
+
+    menu->exitButton = (Rectangle){
+        centerX - 100.0f,
+        menuPanel.y + 275.0f,
+        200.0f,
+        50.0f
+    };
+
+    DrawRectangleRec((Rectangle){ 0, menuPanel.y + 30.0f, SCREEN_WIDTH, 2 }, (Color){ 145, 30, 230, 28 });
+    DrawRectangleRec((Rectangle){ 0, menuPanel.y + 33.0f, SCREEN_WIDTH, 1 }, (Color){ 60, 200, 255, 18 });
+
+    DrawRectangleRounded(
+        (Rectangle){ menuPanel.x - 6.0f, menuPanel.y - 6.0f, menuPanel.width + 12.0f, menuPanel.height + 12.0f },
+        0.08f, 16, (Color){ 145, 30, 230, 18 }
+    );
+
+    DrawRectangleRounded(menuPanel, 0.08f, 16, (Color){ 12, 16, 30, 210 });
+
+    DrawRectangleRounded(
+        (Rectangle){ menuPanel.x + 2.0f, menuPanel.y + 2.0f, menuPanel.width - 4.0f, menuPanel.height * 0.34f },
+        0.08f, 16, (Color){ 255, 255, 255, 12 }
+    );
+
+    DrawRectangleRounded(
+        (Rectangle){ menuPanel.x + 2.0f, menuPanel.y + menuPanel.height * 0.58f, menuPanel.width - 4.0f, menuPanel.height * 0.40f },
+        0.08f, 16, (Color){ 0, 0, 0, 28 }
+    );
+
+    DrawRectangleLinesEx(menuPanel, 2.0f, (Color){ 255, 255, 255, 48 });
+    DrawRectangleLinesEx(
+        (Rectangle){ menuPanel.x + 2.0f, menuPanel.y + 2.0f, menuPanel.width - 4.0f, menuPanel.height - 4.0f },
+        1.0f, (Color){ 145, 30, 230, 34 }
+    );
+
+    DrawRectangleRec((Rectangle){ menuPanel.x + 18.0f, menuPanel.y + 18.0f, menuPanel.width - 36.0f, 2.0f },
+                     (Color){ 60, 200, 255, 120 });
+    DrawRectangleRec((Rectangle){ menuPanel.x + 18.0f, menuPanel.y + 22.0f, menuPanel.width - 120.0f, 1.0f },
+                     (Color){ 145, 30, 230, 90 });
+
+    float fontSize = 78.0f;
     float fontSpacing = 4.0f;
     Vector2 textSize = MeasureTextEx(game->font, "SPACE SHOOTER", fontSize, fontSpacing);
-    Vector2 textPos = {(float)SCREEN_WIDTH/2 - textSize.x/2, 200};
-    DrawTextEx(game->font, "SPACE SHOOTER", textPos, fontSize, fontSpacing, (Color){ 145, 30, 230, 255});
+    Vector2 textPos = {
+        centerX - textSize.x / 2.0f,
+        menuPanel.y + 34.0f
+    };
 
-    
+    DrawTextEx(game->font, "SPACE SHOOTER",
+               (Vector2){ textPos.x + 2.0f, textPos.y + 3.0f },
+               fontSize, fontSpacing, (Color){ 0, 0, 0, 120 });
+
+    DrawTextEx(game->font, "SPACE SHOOTER", textPos, fontSize, fontSpacing,
+               (Color){ 225, 225, 240, 255 });
+
+    float lineW = textSize.x + 36.0f;
+    float lineX = centerX - lineW / 2.0f;
+    DrawRectangleRec((Rectangle){ lineX, textPos.y - 10.0f, lineW, 2.0f }, (Color){ 145, 30, 230, 180 });
+    DrawRectangleRec((Rectangle){ lineX + 26.0f, textPos.y + textSize.y + 10.0f, lineW - 52.0f, 1.0f }, (Color){ 60, 200, 255, 95 });
+
+    const char *subtitle = "ARE YOU READY?";
+    float subSize = 20.0f;
+    float subSpace = 2.0f;
+    Vector2 subText = MeasureTextEx(game->font, subtitle, subSize, subSpace);
+    Vector2 subPos = {
+        centerX - subText.x / 2.0f,
+        menuPanel.y + 145.0f
+    };
+
+    DrawTextEx(game->font, subtitle,
+               (Vector2){ subPos.x + 1.0f, subPos.y + 1.0f },
+               subSize, subSpace, (Color){ 0, 0, 0, 110 });
+    DrawTextEx(game->font, subtitle, subPos, subSize, subSpace,
+               (Color){ 180, 190, 210, 255 });
+
     bool mouseOverStart = CheckCollisionPointRec(menu->mousePos, menu->startButton);
-    DrawRectangleRec(menu->startButton, mouseOverStart ? GRAY : LIGHTGRAY);
+    bool mouseOverExit  = CheckCollisionPointRec(menu->mousePos, menu->exitButton);
+
+    DrawRectangleRounded(
+        (Rectangle){ menu->startButton.x + 4.0f, menu->startButton.y + 6.0f, menu->startButton.width, menu->startButton.height },
+        0.22f, 12, (Color){ 0, 0, 0, 85 }
+    );
+    DrawRectangleRounded(menu->startButton, 0.22f, 12,
+                         mouseOverStart ? (Color){ 255, 255, 255, 28 } : (Color){ 255, 255, 255, 16 });
+    DrawRectangleLinesEx(menu->startButton, 2.0f,
+                         mouseOverStart ? (Color){ 255, 255, 255, 160 } : (Color){ 255, 255, 255, 70 });
+    DrawRectangleRec((Rectangle){ menu->startButton.x + 12.0f, menu->startButton.y + 10.0f, 5.0f, menu->startButton.height - 20.0f },
+                     (Color){ 145, 30, 230, mouseOverStart ? 220 : 140 });
+    DrawRectangleRec((Rectangle){ menu->startButton.x + 3.0f, menu->startButton.y + 3.0f, menu->startButton.width - 6.0f, menu->startButton.height * 0.33f },
+                     (Color){ 255, 255, 255, 14 });
 
     fontSize = 42.0f;
     fontSpacing = 2.0f;
     textSize = MeasureTextEx(game->font, "START", fontSize, fontSpacing);
-    textPos = (Vector2){menu->startButton.x + 100 - textSize.x/2, menu->startButton.y + 5};
-    DrawTextEx(game->font, "START", textPos, fontSize, fontSpacing, mouseOverStart ? DARKGRAY :  BLACK);
+    textPos = (Vector2){
+        menu->startButton.x + menu->startButton.width / 2.0f - textSize.x / 2.0f,
+        menu->startButton.y + menu->startButton.height / 2.0f - textSize.y / 2.0f - 2.0f
+    };
 
-    
-    bool mouseOverExit = CheckCollisionPointRec(menu->mousePos, menu->exitButton);
-    DrawRectangleRec(menu->exitButton, mouseOverExit ? GRAY : LIGHTGRAY);
-    
+    DrawTextEx(game->font, "START",
+               (Vector2){ textPos.x + 1.5f, textPos.y + 1.5f },
+               fontSize, fontSpacing, (Color){ 0, 0, 0, 120 });
+    DrawTextEx(game->font, "START", textPos, fontSize, fontSpacing,
+               mouseOverStart ? (Color){ 245, 245, 255, 255 } : (Color){ 225, 225, 235, 255 });
+
+    DrawRectangleRounded(
+        (Rectangle){ menu->exitButton.x + 4.0f, menu->exitButton.y + 6.0f, menu->exitButton.width, menu->exitButton.height },
+        0.22f, 12, (Color){ 0, 0, 0, 85 }
+    );
+    DrawRectangleRounded(menu->exitButton, 0.22f, 12,
+                         mouseOverExit ? (Color){ 255, 255, 255, 26 } : (Color){ 255, 255, 255, 14 });
+    DrawRectangleLinesEx(menu->exitButton, 2.0f,
+                         mouseOverExit ? (Color){ 255, 255, 255, 150 } : (Color){ 255, 255, 255, 66 });
+    DrawRectangleRec((Rectangle){ menu->exitButton.x + 12.0f, menu->exitButton.y + 10.0f, 5.0f, menu->exitButton.height - 20.0f },
+                     (Color){ 60, 200, 255, mouseOverExit ? 220 : 140 });
+    DrawRectangleRec((Rectangle){ menu->exitButton.x + 3.0f, menu->exitButton.y + 3.0f, menu->exitButton.width - 6.0f, menu->exitButton.height * 0.33f },
+                     (Color){ 255, 255, 255, 12 });
+
     textSize = MeasureTextEx(game->font, "EXIT", fontSize, fontSpacing);
-    textPos = (Vector2){menu->exitButton.x + 100 - textSize.x/2, menu->exitButton.y + 5};
-    DrawTextEx(game->font, "EXIT", textPos, fontSize, fontSpacing, mouseOverExit ? DARKGRAY :  BLACK);
+    textPos = (Vector2){
+        menu->exitButton.x + menu->exitButton.width / 2.0f - textSize.x / 2.0f,
+        menu->exitButton.y + menu->exitButton.height / 2.0f - textSize.y / 2.0f - 2.0f
+    };
+
+    DrawTextEx(game->font, "EXIT",
+               (Vector2){ textPos.x + 1.5f, textPos.y + 1.5f },
+               fontSize, fontSpacing, (Color){ 0, 0, 0, 120 });
+    DrawTextEx(game->font, "EXIT", textPos, fontSize, fontSpacing,
+               mouseOverExit ? (Color){ 245, 245, 255, 255 } : (Color){ 225, 225, 235, 255 });
+
+    DrawRectangleRec((Rectangle){ menuPanel.x + 20.0f, menuPanel.y + menuPanel.height - 34.0f, menuPanel.width - 40.0f, 1.0f },
+                     (Color){ 255, 255, 255, 22 });
+}
+
+void drawGame(Game *game) {
+    drawBackground(game->timer);
+    DrawTextureEx(game->player.entity_texture, game->player.entity_pos, 0.0f, PLAYER_SCALE, WHITE);
+    drawBullet(game->player.entity_bullets);
+    
+}
+
+void unload(Game *game) {
+    UnloadMusicStream(game->menu.bg_song);
+    UnloadFont(game->font);
+    UnloadTexture(game->menu.stars);
+    UnloadTexture(game->player.entity_texture);
 }
 
 int main() {
@@ -288,7 +459,7 @@ int main() {
     initializeGame(&game);
 
     PlayMusicStream(game.menu.bg_song);
-    
+    SetTargetFPS(60);
     while(!WindowShouldClose() && !game.quit) {
 
         handleGameState(&game);
@@ -300,30 +471,16 @@ int main() {
         {
             ClearBackground(BLACK);
 
-            DrawTextureEx(game.sky_texture, (Vector2){0, 0}, 0, 1.0f * SCREEN_WIDTH / (float)game.sky_texture.height, WHITE);
-           
-            switch(game.currentState) {
-            case STATE_MENU: {
-                drawMenu(&game);
-            } break;
-                
-            case STATE_GAME: {
-                DrawTextureEx(game.player.entity_texture, game.player.entity_pos, 0.0f, PLAYER_SCALE, WHITE);
-                drawBullet(game.player.entity_bullets);
-            } break;
-                
-            default : fprintf(stderr, "UNREACHABLE: Not a Valid GAMESTATE.\n");
-            }
+            if (game.currentState == STATE_GAME) drawGame(&game);
+            else if (game.currentState == STATE_MENU) drawMenu(&game);
+       
         }
         EndDrawing();
     }
 
-
-    UnloadMusicStream(game.menu.bg_song);
+    unload(&game);
     CloseAudioDevice();
-    UnloadFont(game.font);
-    UnloadTexture(game.sky_texture);
-    UnloadTexture(game.player.entity_texture);
     CloseWindow();
+    
 	return 0;
 }
