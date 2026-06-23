@@ -7,11 +7,6 @@
 
 #define raylib_url "https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip"
 
-static int exists(const char *path)
-{
-    return access(path, F_OK) == 0;
-}
-
 static int command_exists(const char *cmd)
 {
     char buffer[256];
@@ -23,32 +18,50 @@ static int command_exists(const char *cmd)
 
 static void fetch_raylib(void)
 {
+
+    if(access("raylib/include/raylib.h", F_OK)  == 0  &&
+       access("raylib/include/raymath.h", F_OK) == 0  &&
+       access("raylib/lib/libraylib.a", F_OK)   == 0) {
+        puts("INFO: Raylib is already installed.");
+        return;
+    }
+    
+    int exit = 0;
+    
     if (!command_exists("wget")) {
         puts("Error: wget not found.");
-        return;
+        exit = 1;
     }
 
     if (!command_exists("cmake")) {
         puts("Error: cmake not found.");
-        return;
+        exit = 1;
     }
 
     if (!command_exists("unzip")) {
         puts("Error: unzip not found.");
-        return;
+        exit = 1;
     }
 
-    puts("[*] Downloading Raylib...");
+    if(exit) {
+        puts("INFO: Some building tools were not found. Install them before building.");
+        puts("INFO: Input the names of missing tools in the following command.");
+        puts("INFO: sudo apt install <name>");
+        puts("INFO: Ex. sudo apt install wget cmake unzip");
+        return;
+    }
+    
+    puts("INFO: [*] Downloading Raylib...");
 
     char *cmd = "wget -O raylib-6.0.zip "raylib_url; 
 
     if (system(cmd))
     {
-        puts("Failed to download Raylib.");
+        puts("INFO: Failed to download Raylib.");
         return;
     }
 
-    puts("[*] Building Raylib locally...");
+    puts("INFO: Building Raylib locally...");
 
     const char *build_cmd =
         "unzip raylib-6.0.zip && "
@@ -66,25 +79,27 @@ static void fetch_raylib(void)
         "rm -rf raylib-6.0 raylib-6.0.zip";
 
     if (system(build_cmd)) {
-        puts("Failed to build Raylib.");
+        puts("INFO: Failed to build Raylib.");
+        puts("INFO: Might be missing X11 dev-tools. Try the following command,");
+        puts("INFO: sudo apt install xorg-dev");
         return;
     }
 
-    puts("[+] Raylib installed locally:");
-    puts("    ./raylib/include");
-    puts("    ./raylib/lib");
+    puts("INFO: Raylib files installed locally in the following locations:");
+    puts("     ./raylib/include");
+    puts("     ./raylib/lib");
 }
 
-static int build_game(int debug)
+typedef enum {
+    DEBUG_OFF = 0,
+    DEBUG_ON
+} Debug_mode;
+
+static int build_game(Debug_mode debug)
 {
     char cmd[CMD_SIZE];
 
-    const int has_local_raylib =
-        exists("raylib/include/raylib.h") &&
-        exists("raylib/lib/libraylib.a");
-
-    if (has_local_raylib) {
-        snprintf(cmd, sizeof(cmd),
+    snprintf(cmd, sizeof(cmd),
             "gcc "
             "-std=c17 "
             "%s "
@@ -100,27 +115,17 @@ static int build_game(int debug)
             debug ? "-Wpedantic -Wconversion -Wshadow "
                     "-Wformat=2 -fsanitize=address,undefined"
                     : "");
-    } else {
-        snprintf(cmd, sizeof(cmd),
-            "gcc "
-            "-std=c17 "
-            "%s "
-            "-Wall -Wextra "
-            "%s "
-            "game.c "
-            "-lraylib "
-            "-lm "
-            "-o \"Space Shooter\"",
-            debug ? "-O0 -g3" : "-O2",
-            debug
-                ? "-Wpedantic -Wconversion -Wshadow "
-                  "-Wformat=2 -fsanitize=address,undefined"
-                : "");
-    }
 
     printf("Running:\n%s\n\n", cmd);
 
-    return system(cmd);
+    if(system(cmd) != 0) {
+        puts("");
+        puts("INFO: Download raylib before building. The following command does it for you.");
+        puts("INFO: ./build --download raylib");
+        return -1;
+    }
+
+    return 0;
 }
 
 static void print_help(void)
@@ -136,15 +141,15 @@ static void print_help(void)
 int main(int argc, char **argv)
 {
     if (argc == 1) {
-        return build_game(0);
+        return build_game(DEBUG_OFF);
     }
 
     if (strcmp(argv[1], "--release") == 0) {
-        return build_game(0);
+        return build_game(DEBUG_OFF);
     }
 
     if (strcmp(argv[1], "--debug") == 0) {
-        return build_game(1);
+        return build_game(DEBUG_ON);
     }
 
     if (strcmp(argv[1], "--download") == 0) {
@@ -158,7 +163,8 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        printf("Unknown dependency: %s\n", argv[2]);
+        printf("INFO: Unknown dependency: %s\n", argv[2]);
+        puts("INFO: Only supports raylib");
         return 1;
     }
 
@@ -167,7 +173,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    puts("Incorrect usage.");
-    puts("Try: ./build --help");
+    puts("INFO: Incorrect usage. Try following command for help");
+    puts("INFO: ./build --help");
     return 1;
 }
