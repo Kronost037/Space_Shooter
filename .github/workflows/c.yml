@@ -7,25 +7,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build tools
-        run: sudo apt update && sudo apt install -y build-essential wget tar
+        run: sudo apt-get update && sudo apt-get install -y build-essential wget cmake unzip xorg-dev xvfb
 
       - name: Compile build helper
         run: gcc build.c -o build
 
       - name: Try normal build
         id: build_try
-        run: ./build
         continue-on-error: true
+        run: ./build
 
-      - name: Download raylib if needed
+      - name: Download raylib
         if: steps.build_try.outcome == 'failure'
         run: ./build --download raylib
 
       - name: Build with local raylib
         if: steps.build_try.outcome == 'failure'
         run: ./build
+
+      - name: Run the game
+        run: |
+          set +e
+          timeout 5s xvfb-run -a "./Space Shooter"
+          status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            exit "$status"
+          fi
