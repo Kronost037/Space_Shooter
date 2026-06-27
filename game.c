@@ -1,4 +1,3 @@
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +28,7 @@ typedef struct S_projectile {
 typedef struct S_entity {
     bool active;
     Texture2D entity_texture;
-    Vector2 entity_pos;     // top-left position
+    Vector2 entity_pos;
     float entity_speed;
     Vector2 entity_dir;
     Projectile entity_bullets[MAX_BULLETS];
@@ -396,22 +395,20 @@ static void drawPanel(Game *game) {
 
     DrawRectangleRec(panel, (Color){ 12, 16, 30, 255 });
     DrawRectangleLinesEx(panel, 2.0f, (Color){ 255, 255, 255, 40 });
+    
+    DrawTextEx(game->font, "Space Shooter", (Vector2){ panel.x + 22.0f, 20.0f }, 30.0f, 2.0f, (Color){ 230, 235, 245, 255 });
 
-    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 18.0f, panel.width - 32.0f, 2.0f }, (Color){ 60, 200, 255, 110 });
-    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 22.0f, panel.width - 70.0f, 1.0f }, (Color){ 145, 30, 230, 90 });
-
-    DrawTextEx(game->font, "HUD", (Vector2){ panel.x + 18.0f, 36.0f }, 26.0f, 2.0f, (Color){ 230, 235, 245, 255 });
+    
+    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 60.0f, panel.width - 32.0f, 2.0f }, (Color){ 60, 200, 255, 110 });
+    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 67.0f, panel.width - 70.0f, 1.0f }, (Color){ 145, 30, 230, 90 });
 
     char buf[128];
     snprintf(buf, sizeof(buf), "Enemies Killed: %d", game->enemiesKilled);
-    DrawTextEx(game->font, buf, (Vector2){ panel.x + 18.0f, 92.0f }, 22.0f, 1.5f, (Color){ 220, 220, 235, 255 });
+    DrawTextEx(game->font, buf, (Vector2){ panel.x + 18.0f, 76.0f }, 25.0f, 1.5f, (Color){ 220, 220, 235, 255 });
 
-    snprintf(buf, sizeof(buf), "Playfield: %d x %d", game->gameWidth, game->gameHeight);
-    DrawTextEx(game->font, buf, (Vector2){ panel.x + 18.0f, 128.0f }, 18.0f, 1.0f, (Color){ 180, 190, 210, 255 });
-
-    DrawTextEx(game->font, "M: toggle panel", (Vector2){ panel.x + 18.0f, 186.0f }, 18.0f, 1.0f, (Color){ 180, 190, 210, 255 });
-    DrawTextEx(game->font, "WASD: shoot", (Vector2){ panel.x + 18.0f, 214.0f }, 18.0f, 1.0f, (Color){ 180, 190, 210, 255 });
-    DrawTextEx(game->font, "Arrow keys: move", (Vector2){ panel.x + 18.0f, 242.0f }, 18.0f, 1.0f, (Color){ 180, 190, 210, 255 });
+    DrawTextEx(game->font, "Press M to toggle panel", (Vector2){ panel.x + 18.0f, panel.height - 152.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
+    DrawTextEx(game->font, "WASD to shoot", (Vector2){ panel.x + 18.0f, panel.height - 126.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
+    DrawTextEx(game->font, "Arrow keys to move", (Vector2){ panel.x + 18.0f, panel.height - 100.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
 }
 
 static void drawButton(Game *game, const Button *button, bool hovered, Color accent) {
