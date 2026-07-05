@@ -13,6 +13,7 @@ typedef enum {
     MENU_ACTION_NONE = 0,
     MENU_ACTION_START,
     MENU_ACTION_LEADERBOARD,
+    MENU_ACTION_SETTING,
     MENU_ACTION_EXIT
 } MenuAction;
 
@@ -30,6 +31,7 @@ struct S_menu {
 
     Button startButton;
     Button leaderboardButton;
+    Button settingButton;
     Button exitButton;
 
     float timer;
