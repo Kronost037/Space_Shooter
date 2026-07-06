@@ -8,6 +8,11 @@
 #define TAU 6.28318530718f
 #endif
 
+#define TITLE_INTRO_DURATION 2.35f
+#define TITLE_GLOW_DELAY 0.62f
+#define TITLE_GLOW_DURATION 1.30f
+#define MENU_TRANSITION_DURATION 1.42f
+
 static bool s_titleIntroPlayed = false;
 static float s_titleGlowTimer = -1.0f;
 
@@ -22,22 +27,27 @@ static float menu_smoothstep(float a, float b, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+static float menu_easeOutCubic(float x) {
+    float t = 1.0f - menu_clampf(x, 0.0f, 1.0f);
+    return 1.0f - t * t * t;
+}
+
 static Color menu_alpha(Color c, unsigned char a) {
     c.a = a;
     return c;
 }
 
 static void drawSoftGlow(Vector2 p, float radius, Color c) {
-    for (int i = 5; i >= 1; --i) {
-        float t = (float)i / 5.0f;
-        unsigned char a = (unsigned char)((float)c.a * t * t * 0.55f);
+    for (int i = 6; i >= 1; --i) {
+        float t = (float)i / 6.0f;
+        unsigned char a = (unsigned char)((float)c.a * t * t * 0.48f);
         DrawCircleV(p, radius * t, menu_alpha(c, a));
     }
 }
 
 static void drawGlintSweep(Rectangle r, float timer, Color accent, float intensity) {
-    float w = r.width * 0.26f;
-    float x = r.x - w + fmodf(timer * 120.0f, r.width + w * 2.0f);
+    float w = r.width * 0.28f;
+    float x = r.x - w + fmodf(timer * 74.0f, r.width + w * 2.0f);
 
     DrawRectangleGradientH(
         (int)x,
@@ -45,19 +55,19 @@ static void drawGlintSweep(Rectangle r, float timer, Color accent, float intensi
         (int)w,
         (int)(r.height - 4.0f),
         menu_alpha((Color){ 255, 255, 255, 0 }, 0),
-        menu_alpha(accent, (unsigned char)(34.0f * intensity))
-    );
+        menu_alpha(accent, (unsigned char)(26.0f * intensity))
+   );
 }
 
 static void drawButton(Game *game, const Button *button, bool hovered, Color accent, float pulse, float press, float appear, bool primary, float glowBoost) {
     Rectangle r = button->bounds;
-
     appear = menu_clampf(appear, 0.0f, 1.0f);
-    float introLift = (1.0f - appear) * 18.0f;
-    float hoverLift = hovered ? (primary ? 4.0f : 3.0f) : 0.0f;
-    float pressDrop = press * 2.0f;
 
-    float hoverScale = hovered ? (1.0f + 0.018f * game->menu->hoverPulse) : 1.0f;
+    float introLift = (1.0f - appear) * 12.0f;
+    float hoverLift = hovered ? (primary ? 3.5f : 2.5f) : 0.0f;
+    float pressDrop = press * 2.2f;
+
+    float hoverScale = hovered ? (1.0f + 0.014f * game->menu->hoverPulse) : 1.0f;
     float w = r.width * hoverScale;
     float h = r.height * hoverScale;
 
@@ -68,8 +78,8 @@ static void drawButton(Game *game, const Button *button, bool hovered, Color acc
         h
     };
 
-    unsigned char a = (unsigned char)(255.0f * appear);
-    unsigned char shadowA = (unsigned char)(86.0f * appear);
+    unsigned char appearA = (unsigned char)(255.0f * appear);
+    unsigned char shadowA = (unsigned char)(72.0f * appear);
 
     DrawRectangleRounded(
         (Rectangle){ body.x + 4.0f, body.y + 7.0f, body.width, body.height },
@@ -77,35 +87,42 @@ static void drawButton(Game *game, const Button *button, bool hovered, Color acc
         (Color){ 0, 0, 0, shadowA }
     );
 
-    Color fillTop = hovered ? (Color){ 30, 38, 64, (unsigned char)(235.0f * appear) } : (Color){ 18, 24, 42, (unsigned char)(220.0f * appear) };
-    Color fillBottom = hovered ? (Color){ 10, 14, 28, (unsigned char)(225.0f * appear) } : (Color){ 8, 10, 20, (unsigned char)(212.0f * appear) };
+    Color top = hovered
+        ? (Color){ 32, 44, 74, (unsigned char)(238.0f * appear) }
+        : (Color){ 22, 30, 50, (unsigned char)(232.0f * appear) };
 
-    DrawRectangleRounded(body, 0.22f, 12, fillTop);
+    Color bottom = hovered
+        ? (Color){ 12, 16, 30, (unsigned char)(232.0f * appear) }
+        : (Color){ 10, 12, 24, (unsigned char)(224.0f * appear) };
+
+    DrawRectangleRounded(body, 0.22f, 12, top);
     DrawRectangleRounded(
         (Rectangle){ body.x, body.y + body.height * 0.44f, body.width, body.height * 0.56f },
-        0.22f, 12, fillBottom
+        0.22f, 12, bottom
     );
 
     DrawRectangleRounded(
         (Rectangle){ body.x + 2.0f, body.y + 2.0f, body.width - 4.0f, body.height - 4.0f },
         0.22f, 12,
-        (Color){ 255, 255, 255, (unsigned char)(16.0f * appear) }
+        (Color){ 255, 255, 255, (unsigned char)(14.0f * appear) }
     );
 
     DrawRectangleLinesEx(
         body,
         2.0f,
-        hovered ? menu_alpha((Color){ 120, 220, 255, 255 }, (unsigned char)(190.0f * appear)) : menu_alpha((Color){ 255, 255, 255, 255 }, (unsigned char)(54.0f * appear))
+        hovered
+            ? menu_alpha((Color){ 110, 215, 255, 255 }, (unsigned char)(180.0f * appear))
+            : menu_alpha((Color){ 255, 255, 255, 255 }, (unsigned char)(58.0f * appear))
     );
 
     DrawRectangleRec(
-        (Rectangle){ body.x + 11.0f, body.y + 10.0f, 5.0f, body.height - 20.0f },
-        menu_alpha(accent, a)
+        (Rectangle){ body.x + 11.0f, body.y + 9.0f, 5.0f, body.height - 18.0f },
+        menu_alpha(accent, appearA)
     );
 
     DrawRectangleRec(
         (Rectangle){ body.x + 10.0f, body.y + 6.0f, body.width - 20.0f, 2.0f },
-        menu_alpha((Color){ 255, 255, 255, 255 }, (unsigned char)((hovered ? 34.0f : 18.0f) * appear))
+        menu_alpha((Color){ 255, 255, 255, 255 }, (unsigned char)((hovered ? 30.0f : 16.0f) * appear))
     );
 
     drawGlintSweep(body, game->menu->timer + pulse, accent, appear);
@@ -113,17 +130,18 @@ static void drawButton(Game *game, const Button *button, bool hovered, Color acc
     if (hovered) {
         drawSoftGlow(
             (Vector2){ body.x + body.width * 0.5f, body.y + body.height * 0.5f },
-            body.width * 0.54f * glowBoost,
-            menu_alpha(accent, (unsigned char)(24.0f * appear))
+            body.width * 0.48f * glowBoost,
+            menu_alpha(accent, (unsigned char)(22.0f * appear))
         );
     }
 
-    float fontSize = primary ? (hovered ? 43.0f : 41.0f) : (hovered ? 24.0f : 22.0f);
-    float fontSpacing = primary ? 2.0f : 1.5f;
+    float fontSize = primary ? (hovered ? 40.0f : 38.0f) : (hovered ? 23.0f : 21.0f);
+    float fontSpacing = primary ? 2.0f : 1.3f;
     Vector2 textSize = MeasureTextEx(game->font, button->label, fontSize, fontSpacing);
+
     Vector2 textPos = {
-        body.x + body.width / 2.0f - textSize.x / 2.0f,
-        body.y + body.height / 2.0f - textSize.y / 2.0f - 2.0f
+        body.x + body.width * 0.5f - textSize.x * 0.5f,
+        body.y + body.height * 0.5f - textSize.y * 0.5f - 1.0f
     };
 
     DrawTextEx(
@@ -131,7 +149,7 @@ static void drawButton(Game *game, const Button *button, bool hovered, Color acc
         button->label,
         (Vector2){ textPos.x + 1.5f, textPos.y + 1.5f },
         fontSize, fontSpacing,
-        menu_alpha((Color){ 0, 0, 0, 120 }, a)
+        menu_alpha((Color){ 0, 0, 0, 126 }, appearA)
     );
 
     DrawTextEx(
@@ -139,7 +157,9 @@ static void drawButton(Game *game, const Button *button, bool hovered, Color acc
         button->label,
         textPos,
         fontSize, fontSpacing,
-        hovered ? menu_alpha((Color){ 245, 248, 255, 255 }, a) : menu_alpha((Color){ 220, 225, 235, 255 }, a)
+        hovered
+            ? menu_alpha((Color){ 247, 250, 255, 255 }, appearA)
+            : menu_alpha((Color){ 232, 236, 244, 255 }, appearA)
     );
 }
 
@@ -164,13 +184,11 @@ void updateMenuLayout(Game *game) {
         578.0f
     };
 
-    float centerX = menuPanel.x + menuPanel.width * 0.5f;
-
     Rectangle content = {
         menuPanel.x + 52.0f,
-        menuPanel.y + 210.0f,
+        menuPanel.y + 226.0f,
         menuPanel.width - 104.0f,
-        308.0f
+        302.0f
     };
 
     game->menu->startButton.bounds = (Rectangle){
@@ -203,8 +221,6 @@ void updateMenuLayout(Game *game) {
         content.width - 24.0f,
         58.0f
     };
-
-    (void)centerX;
 }
 
 void initializeMenu(Menu *menu) {
@@ -219,7 +235,7 @@ void initializeMenu(Menu *menu) {
     menu->titlePulse = s_titleIntroPlayed ? 1.0f : 0.0f;
 
     menu->transitionTimer = 0.0f;
-    menu->transitionDuration = 1.28f;
+    menu->transitionDuration = MENU_TRANSITION_DURATION;
     menu->phase = MENU_PHASE_IDLE;
     menu->pendingAction = MENU_ACTION_NONE;
 
@@ -231,6 +247,10 @@ void initializeMenu(Menu *menu) {
     menu->leaderboardButton.label = "LEADERBOARD";
     menu->settingButton.label = "SETTINGS";
     menu->exitButton.label = "EXIT";
+
+    if (s_titleIntroPlayed) {
+        s_titleGlowTimer = TITLE_GLOW_DELAY + TITLE_GLOW_DURATION + 1.0f;
+    }
 }
 
 bool menuActionReady(const Menu *menu) {
@@ -250,50 +270,69 @@ MenuAction menuConsumeAction(Menu *menu) {
     return action;
 }
 
-static float menu_easeOutBack(float x) {
-    const float c1 = 1.70158f;
-    const float c3 = c1 + 1.0f;
-    float t = x - 1.0f;
-    return 1.0f + c3 * t * t * t + c1 * t * t;
-}
+static void drawTitleGlowSweep(Game *game, const char *text, Vector2 pos, float fontSize, float spacing, float sweepTimer) {
+    float totalWidth = MeasureTextEx(game->font, text, fontSize, spacing).x;
+    if (totalWidth <= 0.0f) return;
 
+    float delay = TITLE_GLOW_DELAY;
+    float duration = TITLE_GLOW_DURATION;
+    if (duration <= 0.0f) duration = 0.01f;
 
-static void drawTitleGlowLetters(Game *game, const char *text, Vector2 pos, float fontSize, float spacing, float appear, float glowT) {
-    Font font = game->font;
-    float totalWidth = MeasureTextEx(font, text, fontSize, spacing).x;
+    float whitePhase = menu_clampf(sweepTimer / delay, 0.0f, 1.0f);
+    float bluePhase = menu_clampf((sweepTimer - delay) / duration, 0.0f, 1.0f);
+
+    if (sweepTimer < 0.0f) return;
+
+    float sweepX = pos.x + totalWidth * (0.02f + 0.96f * bluePhase);
+    float sweepBand = totalWidth * 0.18f;
+
+    BeginBlendMode(BLEND_ADDITIVE);
 
     float cursorX = pos.x;
-    float sweepCenter = pos.x + totalWidth * (0.08f + 0.84f * glowT);
-    float band = totalWidth * 0.18f;
 
     for (const char *p = text; *p; ++p) {
         char ch[2] = { *p, '\0' };
-        Vector2 cs = MeasureTextEx(font, ch, fontSize, spacing);
+        Vector2 cs = MeasureTextEx(game->font, ch, fontSize, spacing);
         float charW = cs.x;
-
         float charCenter = cursorX + charW * 0.5f;
-        float dist = fabsf(charCenter - sweepCenter);
 
-        float glow = 1.0f - menu_clampf(dist / band, 0.0f, 1.0f);
-        glow = glow * glow * (3.0f - 2.0f * glow);
+        float dist = fabsf(charCenter - sweepX);
+        float band = sweepBand + charW * 0.55f;
 
-        float localBeat = 0.5f + 0.5f * sinf(glowT * TAU * 1.4f + charCenter * 0.02f);
-        float hot = glow * appear * (0.65f + 0.35f * localBeat);
+        float blueGlow = 0.0f;
+        if (bluePhase > 0.0f) {
+            blueGlow = 1.0f - menu_clampf(dist / band, 0.0f, 1.0f);
+            blueGlow = blueGlow * blueGlow * (3.0f - 2.0f * blueGlow);
+        }
 
-        Color cyan = (Color){ 70, 40, 235, (unsigned char)(180.0f * hot) };
-        Color violet = (Color){ 40, 50, 52, (unsigned char)(130.0f * hot) };
-        Color white = (Color){ 235, 248, 255, (unsigned char)(255.0f * appear) };
+        float whiteGlow = 0.55f + 0.45f * (1.0f - whitePhase * 0.35f);
 
-        DrawTextEx(font, ch, (Vector2){ cursorX - 2.0f, pos.y }, fontSize, spacing, menu_alpha(cyan, cyan.a));
-        DrawTextEx(font, ch, (Vector2){ cursorX + 2.0f, pos.y }, fontSize, spacing, menu_alpha(violet, violet.a));
-        DrawTextEx(font, ch, (Vector2){ cursorX, pos.y - 1.0f }, fontSize, spacing, menu_alpha(cyan, (unsigned char)(120.0f * hot)));
-        DrawTextEx(font, ch, (Vector2){ cursorX, pos.y + 1.0f }, fontSize, spacing, menu_alpha(violet, (unsigned char)(100.0f * hot)));
+        unsigned char whiteA = (unsigned char)(30.0f * whiteGlow);
+        unsigned char blueA   = (unsigned char)(198.0f * blueGlow);
 
-        DrawTextEx(font, ch, (Vector2){ cursorX, pos.y }, fontSize, spacing, white);
+       
+        DrawTextEx(game->font, ch, (Vector2){ cursorX - 2.0f, pos.y - 1.0f }, fontSize + 3.0f, spacing, (Color){ 55, 55, 255, whiteA });
+        DrawTextEx(game->font, ch, (Vector2){ cursorX + 2.0f, pos.y + 1.0f }, fontSize + 3.0f, spacing, (Color){ 55, 55, 255, whiteA });
+        DrawTextEx(game->font, ch, (Vector2){ cursorX, pos.y - 2.0f }, fontSize + 4.0f, spacing, (Color){ 55, 55, 255, (unsigned char)(whiteA * 0.8f) });
+        DrawTextEx(game->font, ch, (Vector2){ cursorX, pos.y + 2.0f }, fontSize + 4.0f, spacing, (Color){ 55, 55, 255, (unsigned char)(whiteA * 0.8f) });
+
+        
+
+        if (blueGlow > 0.0f) {
+            DrawTextEx(game->font, ch, (Vector2){ cursorX - 2.0f, pos.y }, fontSize + 3.0f, spacing, (Color){ 70, 210, 255, blueA });
+            DrawTextEx(game->font, ch, (Vector2){ cursorX + 2.0f, pos.y }, fontSize + 3.0f, spacing, (Color){ 130, 245, 255, blueA });
+            DrawTextEx(game->font, ch, (Vector2){ cursorX, pos.y - 1.0f }, fontSize + 2.0f, spacing, (Color){ 100, 230, 255, (unsigned char)(blueA * 0.75f) });
+        }
+
+        
+        DrawTextEx(game->font, ch, (Vector2){ cursorX, pos.y }, fontSize, spacing, (Color){ 245, 250, 255, 255 });
 
         cursorX += charW + spacing;
     }
+
+    EndBlendMode();
 }
+
 
 void runMenuPhysics(Game *game) {
     Menu *menu = game->menu;
@@ -302,28 +341,38 @@ void runMenuPhysics(Game *game) {
 
     float dt = GetFrameTime();
     menu->timer += dt;
+    if (menu->timer > 1000.0f) {
+        menu->timer = 0.0f;
+    }
 
     if (menu->titlePulse < 1.0f) {
-        menu->titlePulse += dt * 0.42f;
+        menu->titlePulse += dt / TITLE_INTRO_DURATION;
         if (menu->titlePulse >= 1.0f) {
             menu->titlePulse = 1.0f;
             s_titleIntroPlayed = true;
-            if (s_titleGlowTimer < 0.0f) s_titleGlowTimer = 0.0f;
+            if (s_titleGlowTimer < 0.0f) {
+                s_titleGlowTimer = 0.0f;
+            }
         }
-    } else if (s_titleGlowTimer >= 0.0f && s_titleGlowTimer < 1.15f) {
-        s_titleGlowTimer += dt * 0.85f;
+    } else if (s_titleGlowTimer >= 0.0f) {
+        s_titleGlowTimer += dt;
+        if (s_titleGlowTimer > TITLE_GLOW_DELAY + TITLE_GLOW_DURATION + 0.12f) {
+            s_titleGlowTimer = TITLE_GLOW_DELAY + TITLE_GLOW_DURATION + 0.12f;
+        }
     }
 
-    if (menu->timer > 1000.0f) menu->timer = 0.0f;
-
     if (menu->hoverPulse > 0.0f) {
-        menu->hoverPulse -= dt * 2.2f;
-        if (menu->hoverPulse < 0.0f) menu->hoverPulse = 0.0f;
+        menu->hoverPulse -= dt * 1.55f;
+        if (menu->hoverPulse < 0.0f) {
+            menu->hoverPulse = 0.0f;
+        }
     }
 
     if (menu->clickFlash > 0.0f) {
-        menu->clickFlash -= dt * 2.8f;
-        if (menu->clickFlash < 0.0f) menu->clickFlash = 0.0f;
+        menu->clickFlash -= dt * 2.0f;
+        if (menu->clickFlash < 0.0f) {
+            menu->clickFlash = 0.0f;
+        }
     }
 
     menu->mousePos = GetMousePosition();
@@ -338,7 +387,9 @@ void runMenuPhysics(Game *game) {
     int hovered = startHover ? 0 : leaderHover ? 1 : settingHover ? 2 : exitHover ? 3 : -1;
 
     if (hovered != menu->hoveredButton) {
-        if (hovered != -1) PlaySound(menu->hover_sfx);
+        if (hovered != -1) {
+            PlaySound(menu->hover_sfx);
+        }
         menu->hoveredButton = hovered;
         menu->hoverPulse = 1.0f;
     }
@@ -348,6 +399,10 @@ void runMenuPhysics(Game *game) {
             startTransition(menu, MENU_ACTION_START);
         } else if (exitHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             startTransition(menu, MENU_ACTION_EXIT);
+        } else if (leaderHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            startTransition(menu, MENU_ACTION_LEADERBOARD);
+        } else if (settingHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            startTransition(menu, MENU_ACTION_SETTING);
         }
     } else if (menu->phase == MENU_PHASE_TRANSITION) {
         menu->transitionTimer += dt;
@@ -359,21 +414,24 @@ static void drawMenuDecor(const Menu *menu, Rectangle panel) {
     float cx = panel.x + panel.width * 0.5f;
     float titleY = panel.y + 72.0f;
 
-    drawSoftGlow((Vector2){ cx, titleY + 8.0f }, 130.0f, (Color){ 80, 170, 255, 24 });
-    drawSoftGlow((Vector2){ cx - 140.0f, titleY + 2.0f }, 86.0f, (Color){ 140, 70, 220, 18 });
-    drawSoftGlow((Vector2){ cx + 148.0f, titleY + 10.0f }, 78.0f, (Color){ 60, 200, 255, 14 });
+    drawSoftGlow((Vector2){ cx, titleY + 8.0f }, 126.0f, (Color){ 80, 170, 255, 24 });
+    drawSoftGlow((Vector2){ cx - 140.0f, titleY + 2.0f }, 84.0f, (Color){ 140, 70, 220, 18 });
+    drawSoftGlow((Vector2){ cx + 148.0f, titleY + 10.0f }, 76.0f, (Color){ 60, 200, 255, 16 });
 
     DrawRing((Vector2){ cx, titleY + 6.0f }, 40.0f, 68.0f, 22.0f, 340.0f, 64, (Color){ 60, 200, 255, 22 });
     DrawRing((Vector2){ cx, titleY + 6.0f }, 24.0f, 35.0f, 10.0f, 350.0f, 48, (Color){ 145, 30, 230, 14 });
 
     for (int i = 0; i < 5; ++i) {
-        float a = t * 0.7f + (float)i * 1.55f;
+        float a = t * 0.58f + (float)i * 1.52f;
         Vector2 p = {
             cx + cosf(a) * (96.0f + i * 11.0f),
             titleY + sinf(a * 1.13f) * (22.0f + i * 2.0f)
         };
 
-        Color c = (i % 2 == 0) ? (Color){ 60, 200, 255, 255 } : (Color){ 145, 30, 230, 255 };
+        Color c = (i % 2 == 0)
+            ? (Color){ 60, 200, 255, 255 }
+            : (Color){ 145, 30, 230, 255 };
+
         DrawCircleV(p, 2.0f + (float)(i % 3), menu_alpha(c, 86));
     }
 
@@ -431,12 +489,12 @@ void drawMenu(Game *game) {
     );
 
     DrawRectangleLinesEx(menuPanel, 2.0f, (Color){ 255, 255, 255, 44 });
-    DrawRectangleLinesEx(
+   DrawRectangleLinesEx(
         (Rectangle){ menuPanel.x + 2.0f, menuPanel.y + 2.0f, menuPanel.width - 4.0f, menuPanel.height - 4.0f },
         1.0f, (Color){ 145, 30, 230, 34 }
     );
 
-    drawMenuDecor(menu, menuPanel);
+   drawMenuDecor(menu, menuPanel);
 
     Rectangle titlePlate = {
         menuPanel.x + 34.0f,
@@ -453,72 +511,71 @@ void drawMenu(Game *game) {
 
     const char *title = "SPACE SHOOTER";
 
-    float t = menu_clampf(menu->titlePulse / 2.3f, 0.0f, 1.0f);
-    float grow = menu_easeOutBack(menu_smoothstep(0.0f, 0.72f, t));
-    float settle = menu_smoothstep(0.72f, 1.0f, t);
-    
-    float titleScale = 0.62f + 0.48f * grow - 0.10f * settle;
-    float fontSize = 84.0f * titleScale;
+    float titleT = menu_clampf(menu->titlePulse, 0.0f, 1.0f);
+    float rise = menu_easeOutCubic(menu_smoothstep(0.0f, 0.85f, titleT));
+    float settle = menu_smoothstep(0.86f, 1.0f, titleT);
+    float titleScale = 0.60f + 0.44f * rise - 0.04f * settle;
+    float fontSize = 86.0f * titleScale;
     float fontSpacing = 4.0f;
-    
+
     Vector2 textSize = MeasureTextEx(game->font, title, fontSize, fontSpacing);
-    float titleY = menuPanel.y + 36.0f + (1.0f - t) * 34.0f;
-    
+    float titleY = menuPanel.y + 34.0f + (1.0f - titleT) * 28.0f;
+
     Vector2 textPos = {
-        centerX - textSize.x / 2.0f,
+        centerX - textSize.x * 0.5f,
         titleY
     };
-        
-    drawSoftGlow((Vector2){ centerX, menuPanel.y + 82.0f }, 170.0f, (Color){ 60, 200, 255, (unsigned char)(18 + 34 * t) });
-    drawSoftGlow((Vector2){ centerX - 58.0f, menuPanel.y + 78.0f }, 112.0f, (Color){ 145, 30, 230, (unsigned char)(12 + 24 * t) });
-    
-    if (t < 1.0f) {
-        float sweep = 1.0f - t;
+
+    drawSoftGlow((Vector2){ centerX, menuPanel.y + 82.0f }, 176.0f, (Color){ 60, 200, 255, (unsigned char)(20 + 34 * titleT) });
+    drawSoftGlow((Vector2){ centerX - 58.0f, menuPanel.y + 78.0f }, 116.0f, (Color){ 145, 30, 230, (unsigned char)(14 + 24 * titleT) });
+
+    if (titleT < 1.0f) {
+        float sweep = 1.0f - titleT;
         DrawRing(
-                 (Vector2){ centerX, menuPanel.y + 82.0f },
-                 26.0f + sweep * 20.0f,
-                 44.0f + sweep * 56.0f,
-                 12.0f,
-                 348.0f,
-                 72,
-                 (Color){ 255, 255, 255, (unsigned char)(20 + 40 * sweep) }
-                 );
+            (Vector2){ centerX, menuPanel.y + 82.0f },
+            26.0f + sweep * 18.0f,
+            44.0f + sweep * 54.0f,
+            12.0f,
+            348.0f,
+            72,
+            (Color){ 255, 255, 255, (unsigned char)(20 + 40 * sweep) }
+        );
     }
-    
+
     DrawTextEx(
-               game->font,
-               title,
-               (Vector2){ textPos.x + 2.0f, textPos.y + 3.0f },
-               fontSize, fontSpacing,
-               (Color){ 0, 0, 0, (unsigned char)(80 + 90 * t) }
-               );
-    
+        game->font,
+        title,
+        (Vector2){ textPos.x + 2.0f, textPos.y + 3.0f },
+        fontSize, fontSpacing,
+        (Color){ 0, 0, 0, (unsigned char)(82 + 86 * titleT) }
+    );
+
     DrawTextEx(
-               game->font,
-               title,
-               textPos,
-               fontSize, fontSpacing,
-               (Color){ 232, 236, 246, (unsigned char)(110 + 145 * t) }
-               );
-    
-    if (s_titleGlowTimer >= 0.0f) {
-        drawTitleGlowLetters(game, title, textPos, fontSize, fontSpacing, t, s_titleGlowTimer);
+        game->font,
+        title,
+        textPos,
+        fontSize, fontSpacing,
+        (Color){ 238, 242, 250, (unsigned char)(128 + 120 * titleT) }
+    );
+
+    if (s_titleGlowTimer >= 0.0f && s_titleGlowTimer <= TITLE_GLOW_DELAY + TITLE_GLOW_DURATION) {
+        drawTitleGlowSweep(game, title, textPos, fontSize, fontSpacing, s_titleGlowTimer);
     }
-    
+
     DrawRectangleRec(
-                     (Rectangle){ menuPanel.x + 122.0f, menuPanel.y + 160.0f, menuPanel.width - 244.0f, 2.0f },
-                     (Color){ 60, 200, 255, 95 }
-                     );
+        (Rectangle){ menuPanel.x + 122.0f, menuPanel.y + 160.0f, menuPanel.width - 244.0f, 2.0f },
+        (Color){ 60, 200, 255, 95 }
+    );
     DrawRectangleRec(
-                     (Rectangle){ menuPanel.x + 164.0f, menuPanel.y + 166.0f, menuPanel.width - 328.0f, 1.0f },
-                     (Color){ 145, 30, 230, 70 }
-                     );
-    
+        (Rectangle){ menuPanel.x + 164.0f, menuPanel.y + 166.0f, menuPanel.width - 328.0f, 1.0f },
+        (Color){ 145, 30, 230, 70 }
+    );
+
     const char *subtitle = "THE VOID AWAITS";
     float subSize = 18.0f;
-    float subSpace = 2.0f;
+    float subSpace = 3.0f;
     Vector2 subText = MeasureTextEx(game->font, subtitle, subSize, subSpace);
-    Vector2 subPos = { centerX - subText.x / 2.0f, menuPanel.y + 178.0f };
+    Vector2 subPos = { centerX - subText.x * 0.5f, menuPanel.y + 178.0f };
 
     DrawTextEx(
         game->font,
@@ -532,14 +589,14 @@ void drawMenu(Game *game) {
         subtitle,
         subPos,
         subSize, subSpace,
-        (Color){ 180, 190, 210, 255 }
+        (Color){ 206, 214, 228, 255 }
     );
 
     Rectangle content = {
         menuPanel.x + 52.0f,
-        menuPanel.y + 210.0f,
+        menuPanel.y + 226.0f,
         menuPanel.width - 104.0f,
-        308.0f
+        302.0f
     };
 
     DrawRectangleRounded(
@@ -548,39 +605,39 @@ void drawMenu(Game *game) {
         (Color){ 255, 255, 255, 6 }
     );
 
-    DrawRectangleRec(
-        (Rectangle){ centerX - 1.0f, content.y + 18.0f, 2.0f, content.height - 36.0f },
-        (Color){ 255, 255, 255, 16 }
-    );
 
     bool startHover = CheckCollisionPointRec(menu->mousePos, menu->startButton.bounds);
     bool leaderHover = CheckCollisionPointRec(menu->mousePos, menu->leaderboardButton.bounds);
     bool settingHover = CheckCollisionPointRec(menu->mousePos, menu->settingButton.bounds);
     bool exitHover = CheckCollisionPointRec(menu->mousePos, menu->exitButton.bounds);
 
-    float pulse = 0.5f + 0.5f * sinf(menu->timer * 3.0f);
+    float pulse = 0.5f + 0.5f * sinf(menu->timer * 2.1f);
 
-    float introA = menu_smoothstep(0.15f, 0.95f, menu->titlePulse);
-    float introB = menu_smoothstep(0.32f, 1.15f, menu->titlePulse);
-    float introC = menu_smoothstep(0.34f, 1.18f, menu->titlePulse);
-    float introD = menu_smoothstep(0.40f, 1.25f, menu->titlePulse);
+    float introA = menu_smoothstep(0.10f, 0.98f, menu->titlePulse);
+    float introB = menu_smoothstep(0.26f, 1.06f, menu->titlePulse);
+    float introC = menu_smoothstep(0.36f, 1.14f, menu->titlePulse);
+    float introD = menu_smoothstep(0.48f, 1.22f, menu->titlePulse);
 
     drawButton(game, &menu->startButton, startHover, (Color){ 145, 30, 230, 255 }, pulse, menu->phase == MENU_PHASE_TRANSITION && menu->pendingAction == MENU_ACTION_START ? 1.0f : 0.0f, introA, true, 1.00f);
+
     drawButton(game, &menu->leaderboardButton, leaderHover, (Color){ 60, 200, 255, 255 }, pulse + 0.34f, 0.0f, introB, false, 1.00f);
+
     drawButton(game, &menu->settingButton, settingHover, (Color){ 180, 140, 255, 255 }, pulse + 0.68f, 0.0f, introC, false, 1.00f);
+
     drawButton(game, &menu->exitButton, exitHover, (Color){ 255, 92, 128, 255 }, pulse + 1.02f, menu->phase == MENU_PHASE_TRANSITION && menu->pendingAction == MENU_ACTION_EXIT ? 1.0f : 0.0f, introD, true, 1.45f);
+
 
     if (menu->phase == MENU_PHASE_TRANSITION) {
         float t = menu_clampf(menu->transitionTimer / menu->transitionDuration, 0.0f, 1.0f);
         float fade = menu_smoothstep(0.0f, 1.0f, t);
 
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, menu_alpha((Color){ 0, 0, 0, 255 }, (unsigned char)(150.0f * fade)));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, menu_alpha((Color){ 0, 0, 0, 255 }, (unsigned char)(144.0f * fade)));
 
         float burst = 1.0f - menu_smoothstep(0.0f, 0.58f, t);
         Vector2 c = { centerX, menuPanel.y + 82.0f };
 
-        drawSoftGlow(c, 90.0f + 170.0f * burst, menu_alpha((Color){ 80, 200, 255, 255 }, (unsigned char)(80.0f * burst)));
-        DrawRing(c, 20.0f + 190.0f * burst, 28.0f + 220.0f * burst, 10.0f, 350.0f, 96, menu_alpha((Color){ 145, 30, 230, 255 }, (unsigned char)(110.0f * burst)));
+        drawSoftGlow(c, 90.0f + 170.0f * burst, menu_alpha((Color){ 80, 200, 255, 255 }, (unsigned char)(76.0f * burst)));
+        DrawRing(c, 20.0f + 190.0f * burst, 28.0f + 220.0f * burst, 10.0f, 350.0f, 96, menu_alpha((Color){ 145, 30, 230, 255 }, (unsigned char)(108.0f * burst)));
         DrawCircleV(c, 6.0f + 18.0f * burst, menu_alpha((Color){ 255, 255, 255, 255 }, (unsigned char)(200.0f * burst)));
     }
 }

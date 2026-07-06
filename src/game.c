@@ -1,5 +1,6 @@
 #include "game.h"
 #include "menu.h"
+#include "leaderboard.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -321,34 +322,48 @@ static void handleGameState(Game *game) {
 
     switch (game->currentState) {
     case STATE_MENU:
-        if (menuActionReady(game->menu)) {
-            MenuAction action = menuConsumeAction(game->menu);
-            
-            if (action == MENU_ACTION_START) {
-                game->currentState = STATE_GAME;
-                DisableCursor();
-                PauseMusicStream(game->menu->bg_song);
-            } else if (action == MENU_ACTION_LEADERBOARD) {
-                /* leaderboard logic later */
-            } else if (action == MENU_ACTION_EXIT) {
-                game->quit = true;
+        {
+            if (menuActionReady(game->menu)) {
+                MenuAction action = menuConsumeAction(game->menu);
+                
+                if (action == MENU_ACTION_START) {
+                    game->currentState = STATE_GAME;
+                    DisableCursor();
+                    PauseMusicStream(game->menu->bg_song);
+                } else if (action == MENU_ACTION_LEADERBOARD) {
+                    game->currentState = STATE_LEADERBOARD;
+                } else if(action == MENU_ACTION_SETTING) {
+                    
+                } else if (action == MENU_ACTION_EXIT) {
+                    game->quit = true;
+                }
             }
+            break;
         }
-      break;
-
+        
     case STATE_GAME:
-      if (IsKeyPressed(KEY_M)) {
-        game->showPanel = !game->showPanel;
-        refreshLayout(game);
-      }
+        {
+            if (IsKeyPressed(KEY_M)) {
+                game->showPanel = !game->showPanel;
+                refreshLayout(game);
+            }
+            
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                game->currentState = STATE_MENU;
+                EnableCursor();
+                ResumeMusicStream(game->menu->bg_song);
+            }
+            break;
+        }
 
-      if (IsKeyPressed(KEY_ESCAPE)) {
-        game->currentState = STATE_MENU;
-        EnableCursor();
-        ResumeMusicStream(game->menu->bg_song);
-      }
-      break;
-
+    case STATE_LEADERBOARD:
+        {
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                game->currentState = STATE_MENU;
+            }
+            break;
+        }
+        
     default:
       fprintf(stderr, "UNREACHABLE: Not a valid game state.\n");
       break;
@@ -364,6 +379,33 @@ static void unload(Game *game) {
     free(game->menu);
 }
 
+void populateTestLeaderboard(Leaderboard *lb) {
+    // 1. Initialize the subsystem
+    leaderboardInit(lb);
+
+    // 2. Add entries (this will automatically sort them and save to .game/leaderboard.dat)
+    // Adding 15 entries to test the scrollbar (MAX_VISIBLE_ROWS is 10)
+    leaderboardAddScore(lb, "CYBER_NINJA", 995000);
+    leaderboardAddScore(lb, "GHOST_MAKER", 982100);
+    leaderboardAddScore(lb, "ZERO_COOL", 945000);
+    leaderboardAddScore(lb, "ACID_BURN", 945000); // Score tie to test timestamp sorting
+    leaderboardAddScore(lb, "WINTERMUTE", 890000);
+    leaderboardAddScore(lb, "NEUROMANCER", 875500);
+    leaderboardAddScore(lb, "MOTOKO", 850000);
+    leaderboardAddScore(lb, "BATOU", 820000);
+    leaderboardAddScore(lb, "TACHIKOMA_01", 790000);
+    leaderboardAddScore(lb, "LAUGHING_MAN", 775000);
+    leaderboardAddScore(lb, "DATA_GHOST", 760000);
+    leaderboardAddScore(lb, "JC_DENTON", 740000);
+    leaderboardAddScore(lb, "A_JENSEN", 710000);
+    leaderboardAddScore(lb, "SILVERHAND", 690000);
+    leaderboardAddScore(lb, "V", 685000);
+
+    // 3. Force visibility on so it renders immediately
+    lb->isVisible = true;
+    lb->animTimer = 0.0f; 
+}
+
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter");
     SetExitKey(KEY_NULL);
@@ -376,13 +418,22 @@ int main(void) {
     PlayMusicStream(game.menu->bg_song);
     SetTargetFPS(60);
 
+    Leaderboard lb;
+    
+    // Use the test populator instead of leaderboardLoad(&lb) for this test
+    populateTestLeaderboard(&lb);
+    
     while (!WindowShouldClose() && !game.quit) {
-        handleGameState(&game);
 
+        handleGameState(&game);
+        leaderboardUpdate(&lb);
+        
         if (game.currentState == STATE_GAME) {
             runGamePhysics(&game);
         } else if (game.currentState == STATE_MENU) {
             runMenuPhysics(&game);
+        } else if(game.currentState == STATE_LEADERBOARD) {
+            UpdateMusicStream(game.menu->bg_song);
         }
 
         BeginDrawing();
@@ -392,6 +443,8 @@ int main(void) {
             drawGame(&game);
         } else if (game.currentState == STATE_MENU) {
             drawMenu(&game);
+        } else if (game.currentState == STATE_LEADERBOARD) {
+            drawLeaderboard(&lb);
         }
 
         EndDrawing();

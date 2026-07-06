@@ -15,7 +15,9 @@
 
 typedef enum {
     STATE_MENU = 0,
-    STATE_GAME
+    STATE_GAME,
+    STATE_LEADERBOARD,
+    STATE_SETTING,
 } State;
 
 typedef struct S_gamesound {
