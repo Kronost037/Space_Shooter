@@ -1,10 +1,6 @@
-#include "leaderboard.h"
-#include "core.h"
 #include "game.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+#include "leaderboard.h"
+#include "background.h"
 
 #if defined(_WIN32)
     #include <direct.h>
@@ -18,10 +14,9 @@
 #define LB_MAGIC_HEADER 0x4C445242
 #define LB_VERSION 1
 #define LB_FILE_DIR ".game"
-#define LB_FILE_PATH ".game/leaderboard.dat"
+#define LB_FILE_PATH ".game/leaderboard.bin"
 
 #define INITIAL_CAPACITY 16
-#define MAX_VISIBLE_ROWS 10
 #define ROW_HEIGHT 45.0f
 #define ROW_SPACING 5.0f
 #define P_WIDTH 600.0f
@@ -51,17 +46,13 @@ static void ensureDirectory(void) {
 static int compareEntries(const void *a, const void *b) {
     const LeaderboardEntry *ea = (const LeaderboardEntry *)a;
     const LeaderboardEntry *eb = (const LeaderboardEntry *)b;
-    
 
-    if (ea->score != eb->score) {
-        return eb->score - ea->score;
-    }
-    
+    if (ea->score > eb->score) return -1;
+    if (ea->score < eb->score) return 1;
 
-    if (ea->timestamp != eb->timestamp) {
-        return (ea->timestamp < eb->timestamp) ? -1 : 1;
-    }
-    
+    if (ea->timestamp < eb->timestamp) return -1;
+    if (ea->timestamp > eb->timestamp) return 1;
+
     return 0;
 }
 
@@ -121,6 +112,10 @@ void leaderboardInit(Leaderboard *lb) {
     lb->count = 0;
     lb->capacity = INITIAL_CAPACITY;
     lb->entries = (LeaderboardEntry *)malloc(lb->capacity * sizeof(LeaderboardEntry));
+    if (!lb->entries) {
+        lb->capacity = 0;
+        return;
+    }
     
     lb->scroll = 0.0f;
     lb->targetScroll = 0.0f;
@@ -142,6 +137,10 @@ void leaderboardShutdown(Leaderboard *lb) {
 void leaderboardLoad(Leaderboard *lb) {
     if (!lb) return;
 
+    lb->count = 0;
+    lb->scroll = 0.0f;
+    lb->targetScroll = 0.0f;
+    
     FILE *file = fopen(LB_FILE_PATH, "rb");
     if (!file) {
         return;
@@ -161,7 +160,7 @@ void leaderboardLoad(Leaderboard *lb) {
     }
 
     int fileCount = 0;
-    if (fread(&fileCount, sizeof(int), 1, file) != 1) {
+    if (fread(&fileCount, sizeof(int), 1, file) != 1 || fileCount < 0) {
         fclose(file);
         return;
     }
@@ -185,6 +184,9 @@ void leaderboardLoad(Leaderboard *lb) {
     fclose(file);
     
     qsort(lb->entries, lb->count, sizeof(LeaderboardEntry), compareEntries);
+
+    lb->scroll = 0.0f;
+    lb->targetScroll = 0.0f;
 }
 
 void leaderboardSave(const Leaderboard *lb) {
@@ -391,7 +393,14 @@ void drawLeaderboard(Leaderboard *lb) {
 
     EndScissorMode();
 
-
+    if (lb->count == 0) {
+        DrawText(
+                 "   Such Emptiness...",
+                 (int)(panelRec.x + panelRec.width / 2 - 230.0f), (int)currentY, 40,
+                 COLOR_TEXT_MUTED
+                 );
+    }
+    
     float contentHeight = lb->count * (ROW_HEIGHT + ROW_SPACING) - ROW_SPACING;
     float maxScroll = (contentHeight > listRec.height) ? (contentHeight - listRec.height) : 0.0f;
     drawScrollbar(listRec, lb->scroll, maxScroll, contentHeight);

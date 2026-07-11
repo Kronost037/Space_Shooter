@@ -3,9 +3,11 @@
 
 #include "raylib.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+
 typedef struct S_game Game;
 typedef struct S_menu Menu;
-
-void drawBackground(int width, int height, float timer);
 
 #endif

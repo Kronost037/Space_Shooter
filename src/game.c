@@ -1,16 +1,20 @@
 #include "game.h"
 #include "menu.h"
-#include "leaderboard.h"
+#include "panel.h"
+#include "background.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include "raylib.h"
 #include "raymath.h"
 
 static void initializeSound(GameSound *gamesound) {
     gamesound->laser_sound = LoadSound("src/Assets/laser_shot.mp3");
     SetSoundVolume(gamesound->laser_sound, 0.1f);
+}
+
+static Vector2 getScaledTextureSize(Texture2D texture) {
+    return (Vector2){
+        (float)texture.width * PLAYER_SCALE,
+        (float)texture.height * PLAYER_SCALE
+    };
 }
 
 static void drawBullet(Projectile *bullets) {
@@ -27,12 +31,7 @@ static void drawBullet(Projectile *bullets) {
     }
 }
 
-static Vector2 getScaledTextureSize(Texture2D texture) {
-    return (Vector2){
-        (float)texture.width * PLAYER_SCALE,
-        (float)texture.height * PLAYER_SCALE
-    };
-}
+
 
 static Rectangle getEntityRect(const Entity *entity) {
     Vector2 scaled = getScaledTextureSize(entity->entity_texture);
@@ -61,7 +60,7 @@ static void initializePlayer(Entity *player) {
     player->entity_color = WHITE;
 }
 
-static void initializeGame(Game *game) {
+void initializeGame(Game *game) {
     *game = (Game){0};
     game->quit = false;
     game->showPanel = true;
@@ -85,6 +84,9 @@ static void initializeGame(Game *game) {
 
     game->menu->startButton = (Button){ .bounds = {0}, .label = "START" };
     game->menu->exitButton = (Button){ .bounds = {0}, .label = "EXIT" };
+    
+    leaderboardInit(&game->leaderboard);
+    leaderboardLoad(&game->leaderboard);
 }
 
 static bool getShootingDirection(Vector2 *dir) {
@@ -203,6 +205,7 @@ static void updateEnemies(Game *game) {
 
         if (CheckCollisionRecs(enemyRec, playerRec)) {
             enemy->active = false;
+            game->lives = 0;
             continue;
         }
 
@@ -242,7 +245,7 @@ static void handleCollision(Game *game) {
     }
 }
 
-static void runGamePhysics(Game *game) {
+void runGamePhysics(Game *game) {
     float dt = GetFrameTime();
     game->timer += dt;
     if (game->timer > 100.0f) game->timer = 0.0f;
@@ -276,35 +279,7 @@ static void drawEntity(const Entity *entity, Color tint) {
     DrawTextureEx(entity->entity_texture, entity->entity_pos, 0.0f, PLAYER_SCALE, tint);
 }
 
-static void drawPanel(Game *game) {
-    if (!game->showPanel) return;
-
-    Rectangle panel = {
-        (float)game->gameWidth,
-        0.0f,
-        (float)PANEL_WIDTH,
-        (float)game->gameHeight
-    };
-
-    DrawRectangleRec(panel, (Color){ 12, 16, 30, 255 });
-    DrawRectangleLinesEx(panel, 2.0f, (Color){ 255, 255, 255, 40 });
-    
-    DrawTextEx(game->font, "Space Shooter", (Vector2){ panel.x + 22.0f, 20.0f }, 30.0f, 2.0f, (Color){ 230, 235, 245, 255 });
-
-    
-    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 60.0f, panel.width - 32.0f, 2.0f }, (Color){ 60, 200, 255, 110 });
-    DrawRectangleRec((Rectangle){ panel.x + 16.0f, 67.0f, panel.width - 70.0f, 1.0f }, (Color){ 145, 30, 230, 90 });
-
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Enemies Killed: %d", game->enemiesKilled);
-    DrawTextEx(game->font, buf, (Vector2){ panel.x + 18.0f, 76.0f }, 25.0f, 1.5f, (Color){ 220, 220, 235, 255 });
-
-    DrawTextEx(game->font, "Press M to toggle panel", (Vector2){ panel.x + 18.0f, panel.height - 152.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
-    DrawTextEx(game->font, "WASD to shoot", (Vector2){ panel.x + 18.0f, panel.height - 126.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
-    DrawTextEx(game->font, "Arrow keys to move", (Vector2){ panel.x + 18.0f, panel.height - 100.0f }, 20.0f, 2.0f, (Color){ 180, 190, 210, 255 });
-}
-
-static void drawGame(Game *game) {
+void drawGame(Game *game) {
     drawBackground(game->gameWidth, game->gameHeight, game->timer);
 
     drawBullet(game->player.entity_bullets);
@@ -315,143 +290,4 @@ static void drawGame(Game *game) {
 
     drawEntity(&game->player, WHITE);
     drawPanel(game);
-}
-
-static void handleGameState(Game *game) {
-    game->menu->mousePos = GetMousePosition();
-
-    switch (game->currentState) {
-    case STATE_MENU:
-        {
-            if (menuActionReady(game->menu)) {
-                MenuAction action = menuConsumeAction(game->menu);
-                
-                if (action == MENU_ACTION_START) {
-                    game->currentState = STATE_GAME;
-                    DisableCursor();
-                    PauseMusicStream(game->menu->bg_song);
-                } else if (action == MENU_ACTION_LEADERBOARD) {
-                    game->currentState = STATE_LEADERBOARD;
-                } else if(action == MENU_ACTION_SETTING) {
-                    
-                } else if (action == MENU_ACTION_EXIT) {
-                    game->quit = true;
-                }
-            }
-            break;
-        }
-        
-    case STATE_GAME:
-        {
-            if (IsKeyPressed(KEY_M)) {
-                game->showPanel = !game->showPanel;
-                refreshLayout(game);
-            }
-            
-            if (IsKeyPressed(KEY_ESCAPE)) {
-                game->currentState = STATE_MENU;
-                EnableCursor();
-                ResumeMusicStream(game->menu->bg_song);
-            }
-            break;
-        }
-
-    case STATE_LEADERBOARD:
-        {
-            if (IsKeyPressed(KEY_ESCAPE)) {
-                game->currentState = STATE_MENU;
-            }
-            break;
-        }
-        
-    default:
-      fprintf(stderr, "UNREACHABLE: Not a valid game state.\n");
-      break;
-    }
-}
-
-static void unload(Game *game) {
-    UnloadMusicStream(game->menu->bg_song);
-    UnloadSound(game->menu->hover_sfx);
-    UnloadSound(game->menu->click_sfx);
-    UnloadFont(game->font);
-    UnloadTexture(game->player.entity_texture);
-    free(game->menu);
-}
-
-void populateTestLeaderboard(Leaderboard *lb) {
-    // 1. Initialize the subsystem
-    leaderboardInit(lb);
-
-    // 2. Add entries (this will automatically sort them and save to .game/leaderboard.dat)
-    // Adding 15 entries to test the scrollbar (MAX_VISIBLE_ROWS is 10)
-    leaderboardAddScore(lb, "CYBER_NINJA", 995000);
-    leaderboardAddScore(lb, "GHOST_MAKER", 982100);
-    leaderboardAddScore(lb, "ZERO_COOL", 945000);
-    leaderboardAddScore(lb, "ACID_BURN", 945000); // Score tie to test timestamp sorting
-    leaderboardAddScore(lb, "WINTERMUTE", 890000);
-    leaderboardAddScore(lb, "NEUROMANCER", 875500);
-    leaderboardAddScore(lb, "MOTOKO", 850000);
-    leaderboardAddScore(lb, "BATOU", 820000);
-    leaderboardAddScore(lb, "TACHIKOMA_01", 790000);
-    leaderboardAddScore(lb, "LAUGHING_MAN", 775000);
-    leaderboardAddScore(lb, "DATA_GHOST", 760000);
-    leaderboardAddScore(lb, "JC_DENTON", 740000);
-    leaderboardAddScore(lb, "A_JENSEN", 710000);
-    leaderboardAddScore(lb, "SILVERHAND", 690000);
-    leaderboardAddScore(lb, "V", 685000);
-
-    // 3. Force visibility on so it renders immediately
-    lb->isVisible = true;
-    lb->animTimer = 0.0f; 
-}
-
-int main(void) {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter");
-    SetExitKey(KEY_NULL);
-
-    InitAudioDevice();
-
-    Game game = {0};
-    initializeGame(&game);
-
-    PlayMusicStream(game.menu->bg_song);
-    SetTargetFPS(60);
-
-    Leaderboard lb;
-    
-    // Use the test populator instead of leaderboardLoad(&lb) for this test
-    populateTestLeaderboard(&lb);
-    
-    while (!WindowShouldClose() && !game.quit) {
-
-        handleGameState(&game);
-        leaderboardUpdate(&lb);
-        
-        if (game.currentState == STATE_GAME) {
-            runGamePhysics(&game);
-        } else if (game.currentState == STATE_MENU) {
-            runMenuPhysics(&game);
-        } else if(game.currentState == STATE_LEADERBOARD) {
-            UpdateMusicStream(game.menu->bg_song);
-        }
-
-        BeginDrawing();
-        ClearBackground(BLACK);
-
-        if (game.currentState == STATE_GAME) {
-            drawGame(&game);
-        } else if (game.currentState == STATE_MENU) {
-            drawMenu(&game);
-        } else if (game.currentState == STATE_LEADERBOARD) {
-            drawLeaderboard(&lb);
-        }
-
-        EndDrawing();
-    }
-
-    unload(&game);
-    CloseAudioDevice();
-    CloseWindow();
-    return 0;
 }

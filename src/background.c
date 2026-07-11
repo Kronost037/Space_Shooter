@@ -1,6 +1,4 @@
-#include "core.h"
-#include <math.h>
-#include <stdbool.h>
+#include "background.h"
 
 #ifndef TAU
 #define TAU 6.28318530718f
@@ -546,7 +544,7 @@ static void bg_spawn_planet(BgPlanet *p, int width, int height) {
     }
 }
 
-void drawBackground(int width, int height, float timer) {
+void drawBackground(size_t width, size_t height, float timer) {
     static bool initialized = false;
 
     static BgStar stars[BG_STAR_COUNT];

@@ -1,8 +1,6 @@
 #include "game.h"
 #include "menu.h"
-
-#include <math.h>
-#include <stdbool.h>
+#include "background.h"
 
 #ifndef TAU
 #define TAU 6.28318530718f

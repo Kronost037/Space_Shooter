@@ -1,11 +1,15 @@
 #ifndef LEADERBOARD_H
 #define LEADERBOARD_H
 
-#include "core.h"
 #include <stdint.h>
 #include <time.h>
 #include <stdbool.h>
-#include <raylib.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <math.h>
 
 
 
@@ -20,10 +24,8 @@ typedef struct {
     int count;
     int capacity;
 
-
     float scroll;
-    float targetScroll;
-    
+    float targetScroll;    
 
     float animTimer;
     float globalTimer;

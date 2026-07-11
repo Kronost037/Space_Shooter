@@ -2,8 +2,12 @@
 #define GAME_H_
 
 #include "core.h"
-#include <raylib.h>
+#include "leaderboard.h"
 
+#include <stdlib.h>
+
+#include <math.h>
+#include "raymath.h"
 
 #define SCREEN_WIDTH 1500
 #define SCREEN_HEIGHT 900
@@ -15,7 +19,9 @@
 
 typedef enum {
     STATE_MENU = 0,
+    STATE_NAME_ENTRY,
     STATE_GAME,
+    STATE_GAME_OVER,
     STATE_LEADERBOARD,
     STATE_SETTING,
 } State;
@@ -57,6 +63,19 @@ struct S_game {
     Font font;
     float timer;
     int enemiesKilled;
+
+    char playerName[32];
+    int lives;
+    int maxLives;
+    float playerHitCooldown;
+    bool scoreSubmitted;
+    Leaderboard leaderboard;
 };
+
+
+void initializeGame(Game *game);
+void runGamePhysics(Game *game);
+void drawGame(Game *game);
+
 
 #endif
