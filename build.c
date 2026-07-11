@@ -105,7 +105,8 @@ static int build_game(Debug_mode debug)
             "%s "
             "-Wall -Wextra "
             "%s "
-            "game.c "
+            "src/background.c src/menu.c src/leaderboard.c src/panel.c "
+            "src/game.c src/core.c "
             "-Iraylib/include "
             "-Lraylib/lib "
             "-lraylib "
@@ -120,7 +121,7 @@ static int build_game(Debug_mode debug)
 
     if(system(cmd) != 0) {
         puts("");
-        puts("INFO: Download raylib before building. The following command does it for you.");
+        puts("INFO: If you are having problem downloading raylib. The following command does it for you.");
         puts("INFO: ./build --download raylib");
         return -1;
     }
