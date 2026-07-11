@@ -4,6 +4,7 @@
 #include "core.h"
 #include "leaderboard.h"
 
+#include <raylib.h>
 #include <stdlib.h>
 
 #include <math.h>
@@ -13,9 +14,11 @@
 #define SCREEN_HEIGHT 900
 #define PANEL_WIDTH 320
 #define PLAYER_SCALE 0.03f
+#define ENEMY_1_SCALE 0.3f
+
 #define MAX_BULLETS 40
 #define MAX_ENEMIES 20
-
+#define MAX_LIVES 3
 
 typedef enum {
     STATE_MENU = 0,
@@ -30,6 +33,11 @@ typedef struct S_gamesound {
     Sound laser_sound;
 } GameSound;
 
+typedef struct S_textures {
+    Texture2D Player;
+    Texture2D Enemy_1;
+} Entity_Texture;
+
 typedef struct S_projectile {
     bool active;
     Rectangle dim;
@@ -39,37 +47,42 @@ typedef struct S_projectile {
 } Projectile;
 
 typedef struct S_entity {
-    bool active;
-    Texture2D entity_texture;
+    int lives;
     Vector2 entity_pos;
     float entity_speed;
     Vector2 entity_dir;
+
     Projectile entity_bullets[MAX_BULLETS];
     Vector2 entity_shooting_dir;
     float entity_shooting_cooldown;
+
     Color entity_color;
 } Entity;
 
 struct S_game {
     bool quit;
+
     GameSound gamesound;
+    Entity_Texture entity_texture;
+    
     bool showPanel;
     int gameWidth;
     int gameHeight;
     State currentState;
-    Menu *menu;
-    Entity player;
-    Entity enemies[MAX_ENEMIES];
     Font font;
     float timer;
-    int enemiesKilled;
-
+    
+    Menu *menu;
+    
+    Entity player;
     char playerName[32];
-    int lives;
-    int maxLives;
     float playerHitCooldown;
-    bool scoreSubmitted;
+
+    Entity enemies[MAX_ENEMIES];
+    int enemiesKilled;
+    
     Leaderboard leaderboard;
+    bool scoreSubmitted;
 };
 
 

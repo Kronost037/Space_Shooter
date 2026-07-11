@@ -68,7 +68,7 @@ static Rectangle getButtonRect(Rectangle panel, int index) {
 }
 
 static void resetRun(Game *game) {
-    game->lives = game->maxLives;
+    game->player.lives = MAX_LIVES;
     game->playerHitCooldown = 0.0f;
     game->scoreSubmitted = false;
     game->enemiesKilled = 0;
@@ -366,7 +366,7 @@ static void handleGameState(Game *game) {
             ResumeMusicStream(game->menu->bg_song);
         }
 
-        if(game->lives == 0) {
+        if(game->player.lives == 0) {
             game->currentState = STATE_GAME_OVER;
             EnableCursor();
         }
@@ -440,7 +440,8 @@ static void unload(Game *game) {
     UnloadSound(game->menu->hover_sfx);
     UnloadSound(game->menu->click_sfx);
     UnloadFont(game->font);
-    UnloadTexture(game->player.entity_texture);
+    UnloadTexture(game->entity_texture.Enemy_1);
+    UnloadTexture(game->entity_texture.Player);
     free(game->menu);
 }
 
@@ -461,12 +462,6 @@ int main(void) {
 
     Game game = (Game){0};
     initializeGame(&game);
-
-    game.maxLives = 3;
-    game.lives = game.maxLives;
-    game.playerName[0] = '\0';
-    game.scoreSubmitted = false;
-    game.playerHitCooldown = 0.0f;
 
     PlayMusicStream(game.menu->bg_song);
     SetTargetFPS(60);
