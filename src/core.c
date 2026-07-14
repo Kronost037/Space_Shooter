@@ -67,33 +67,15 @@ static Rectangle getButtonRect(Rectangle panel, int index) {
     };
 }
 
-static void resetRun(Game *game) {
-    game->player.lives = MAX_LIVES;
-    game->playerHitCooldown = 0.0f;
-    game->scoreSubmitted = false;
-    game->enemiesKilled = 0;
-    game->timer = 0.0f;
-    game->showPanel = true;
-
-    game->player.entity_pos = (Vector2){ 40.0f, 100.0f };
-    game->player.entity_dir = (Vector2){ 0.0f, 0.0f };
-    game->player.entity_shooting_dir = (Vector2){ 0.0f, -1.0f };
-    game->player.entity_shooting_cooldown = 0.0f;
-
-    memset(game->enemies, 0, sizeof(game->enemies));
-    memset(game->player.entity_bullets, 0, sizeof(game->player.entity_bullets));
-
-    refreshLayout(game);
-    DisableCursor();
-    PauseMusicStream(game->menu->bg_song);
-}
-
 static void submitScoreIfNeeded(Game *game) {
-    if (game->scoreSubmitted) return;
+    if (game->scoreSubmitted || (game->enemiesKilled == 0 && game->leaderboard.count > 10)) return;
+
+    const int max_entries = 500;
+    
+    if(game->leaderboard.count == max_entries && game->enemiesKilled < game->leaderboard.entries[max_entries - 1].score) return;
 
     const char *name = (game->playerName[0] != '\0') ? game->playerName : "PLAYER";
     leaderboardAddScore(&game->leaderboard, name, game->enemiesKilled);
-    printf("EMEMIES KILLED %d\n", game->enemiesKilled);
     game->scoreSubmitted = true;
 }
 
@@ -308,6 +290,13 @@ static void drawGameOver(Game *game) {
     (Color){ 180, 0, 255, 100 });
 }
 
+static void syncCameraLayout(Game *game) {
+    game->camera.offset = (Vector2){
+        game->gameWidth * 0.5f,
+        game->gameHeight * 0.5f
+    };
+}
+
 static void handleGameState(Game *game) {
     game->menu->mousePos = GetMousePosition();
 
@@ -325,7 +314,7 @@ static void handleGameState(Game *game) {
                 game->leaderboard.targetScroll = 0.0f;
                 game->currentState = STATE_LEADERBOARD;
             } else if (action == MENU_ACTION_SETTING) {
-                /* reserved */
+                
             } else if (action == MENU_ACTION_EXIT) {
                 game->quit = true;
             }
@@ -358,6 +347,7 @@ static void handleGameState(Game *game) {
         if (IsKeyPressed(KEY_M)) {
             game->showPanel = !game->showPanel;
             refreshLayout(game);
+            syncCameraLayout(game);
         }
 
         if (IsKeyPressed(KEY_ESCAPE)) {
@@ -402,13 +392,13 @@ static void handleGameState(Game *game) {
         } else if (hoverMenu && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             PlaySound(game->menu->click_sfx);
             game->currentState = STATE_MENU;
-            ResumeMusicStream(game->menu->bg_song);
             prevHoverPlay = prevHoverMenu = false;
         }
         
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE)) {
             PlaySound(game->menu->click_sfx);
             DisableCursor();
+            game->currentState = STATE_GAME;
             resetRun(game);
             prevHoverPlay = prevHoverMenu = false;
         }
@@ -417,7 +407,6 @@ static void handleGameState(Game *game) {
             PlaySound(game->menu->click_sfx);
             game->currentState = STATE_MENU;
             EnableCursor();
-            ResumeMusicStream(game->menu->bg_song);
             prevHoverPlay = prevHoverMenu = false;
         }
         break;

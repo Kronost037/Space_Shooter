@@ -17,8 +17,27 @@
 #define ENEMY_1_SCALE 0.3f
 
 #define MAX_BULLETS 40
-#define MAX_ENEMIES 20
+#define MAX_ENEMIES 100
 #define MAX_LIVES 3
+
+
+#define WORLD_COLS 4
+#define WORLD_ROWS 4
+#define WORLD_SECTOR_WIDTH 2200
+#define WORLD_SECTOR_HEIGHT 2200
+
+typedef struct S_world {
+    int cols;
+    int rows;
+    int sectorWidth;
+    int sectorHeight;
+    int width;
+    int height;
+    int playerSectorX;
+    int playerSectorY;
+} World;
+
+
 
 typedef enum {
     STATE_MENU = 0,
@@ -52,6 +71,8 @@ typedef struct S_entity {
     float entity_speed;
     Vector2 entity_dir;
 
+    float last_seen;
+    
     Projectile entity_bullets[MAX_BULLETS];
     Vector2 entity_shooting_dir;
     float entity_shooting_cooldown;
@@ -62,6 +83,9 @@ typedef struct S_entity {
 struct S_game {
     bool quit;
 
+    World world;
+    Camera2D camera;
+    
     GameSound gamesound;
     Entity_Texture entity_texture;
     
@@ -71,6 +95,7 @@ struct S_game {
     State currentState;
     Font font;
     float timer;
+    float elapsedTime;
     
     Menu *menu;
     
@@ -89,6 +114,6 @@ struct S_game {
 void initializeGame(Game *game);
 void runGamePhysics(Game *game);
 void drawGame(Game *game);
-
+void resetRun(Game *game);
 
 #endif
