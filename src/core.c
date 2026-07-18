@@ -2,7 +2,6 @@
 #include "game.h"
 #include "menu.h"
 #include "leaderboard.h"
-#include "background.h"
 
 #include "name_entry.h"
 #include "game_over.h"

@@ -1,6 +1,5 @@
 #include "name_entry.h"
 #include "game.h"
-#include "menu.h"
 #include "background.h"
 
 #include <string.h>
