@@ -320,6 +320,30 @@ static void makeBullet(Game *game) {
     }
 }
 
+//-------------------------------------------------------------------------------
+
+//-------------DSR----------------
+static void moveEnemyTowardsPlayer(
+    Entity *enemy,
+    Vector2 playerCenter,
+    float dt,
+    Texture2D enemyTexture
+){
+    Vector2 dir = Vector2Subtract(
+        playerCenter,
+        getEntityCenter( enemy, enemyTexture, ENEMY_1_SCALE)
+    );
+
+    if (Vector2LengthSqr(dir) <= 0.0001f)  return;
+
+    dir = Vector2Normalize(dir);
+
+    enemy->entity_pos = Vector2Add(
+        enemy->entity_pos,
+        Vector2Scale(dir, enemy -> entity_speed * dt)
+    );
+}
+//-------------DSR----------------
 
 static void updateEnemies(Game *game) {
     float dt = GetFrameTime();
@@ -337,14 +361,8 @@ static void updateEnemies(Game *game) {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         Entity *enemy = &game->enemies[i];
         if (enemy->lives == 0) continue;
-
-        Vector2 enemyCenter = getEntityCenter(enemy, game->entity_texture.Enemy_1, ENEMY_1_SCALE);
-        Vector2 dir = Vector2Subtract(playerCenter, enemyCenter);
-
-        if (Vector2LengthSqr(dir) > 0.0001f) {
-            dir = Vector2Normalize(dir);
-            enemy->entity_pos = Vector2Add(enemy->entity_pos, Vector2Scale(dir, enemy->entity_speed * dt));
-        }
+        
+        moveEnemyTowardsPlayer(enemy, playerCenter, dt, game->entity_texture.Enemy_1);
 
         if (enemyVisible(game, enemy)) {
                 enemy->last_seen = game->elapsedTime;
@@ -372,6 +390,8 @@ static void updateEnemies(Game *game) {
         }
     }
 }
+
+// -------------------------------------------------------------------------
 
 static void handleCollision(Game *game) {
     Entity *player = &game->player;

@@ -8,14 +8,14 @@
 
 
 // File-scoped static configurations
-static float backspaceHoldTime       = 0.0f; // why set the values here?
+static float backspaceHoldTime       = 0.0f;
 static float backspaceRepeatTimer    = 0.0f;
 
 static bool isAllowedNameChar(int ch) {
     return ch >= 32 && ch <= 126;
 }
 
-void updateNameEntry(Game *game) {  // why not static?
+void updateNameEntry(Game *game) {
     int ch = 0;
     while ((ch = GetCharPressed()) > 0) {
         size_t len = strlen(game->playerName);
@@ -56,25 +56,16 @@ void updateNameEntry(Game *game) {  // why not static?
     }
 }
 
-void drawNameEntry(Game *game) { // why not static
+void drawNameEntry(Game *game) {
     float anim = (float)GetTime();
     drawBackground(GetScreenWidth(), GetScreenHeight(), anim);
 
-    // what happened here??
-    // Rectangle panel = makeCenteredPanel(760.0f, 420.0f);
-    // drawGlassPanel(panel,
-    //                (Color){ 10, 15, 30, 220 },
-    //                (Color){ 0, 150, 255, 180 },
-    //                (Color){ 0, 255, 255, 150 });
-
-    // Layout math (relying on structural dimension extracted from core.c)
     Rectangle panel = {
         ((float)GetScreenWidth() - 760.0f) * 0.5f,
         ((float)GetScreenHeight() - 420.0f) * 0.5f,
         760.0f, 420.0f
     };
 
-    // Draw semi-transparent UI Panels (calls out to Raylib drawing API directly)
     DrawRectangleRounded(panel, 0.06f, 18, (Color){ 10, 15, 30, 220 });
     DrawRectangleRoundedLines(panel, 0.16f, 18, (Color){ 0, 150, 255, 180 });
 
@@ -127,35 +118,7 @@ void drawNameEntry(Game *game) { // why not static
     };
     DrawTextEx(font, display, displayPos, 34.0f, 1.0f,displayColor);
 
-
-    // drawGlowText(font, title, titlePos, 40.0f, 1.0f,
-    //              (Color){ 220, 240, 255, 255 },
-    //              (Color){ 0, 255, 255, 200 });
-
-    // const char *subtitle = "TYPE YOUR NAME AND PRESS ENTER";
-    // Vector2 subtitleSize = MeasureTextEx(font, subtitle, 18.0f, 1.0f);
-    
-
-    
-    // drawGlassPanel(input,
-    //                (Color){ 5, 10, 18, 210 },
-    //                (Color){ 0, 255, 255, 170 },
-    //                (Color){ 180, 0, 255, 110 });
-
-    
-
-    float fontSize = 34.0f;
-    // Vector2 displaySize = MeasureTextEx(font, display, fontSize, 1.0f);
-    // Vector2 displayPos = {
-    //     input.x + 18.0f,
-    //     input.y + (input.height - displaySize.y) * 0.5f - 2.0f
-    // };
-
-    // drawGlowText(font, display, displayPos, fontSize, 1.0f,
-    //              displayColor, (Color){ 0, 255, 255, 100 });
-
-    
-    
+    float fontSize = 34.0f;    
     
     if (fmodf(anim, 1.0f) < 0.5f) {
         float caretX = displayPos.x;
@@ -170,12 +133,4 @@ void drawNameEntry(Game *game) { // why not static
             (Vector2){ 2.0f, input.height - 36.0f },
             (Color){ 0, 255, 255, 220 });
     }
-
-
-    // const char *limit = "MAX 20 CHARACTERS";
-    // Vector2 limitSize = MeasureTextEx(font, limit, 16.0f, 1.0f);
-    // DrawTextEx(font, limit, (Vector2){
-    //     panel.x + (panel.width - limitSize.x) * 0.5f - 10.0f,
-    //     panel.y + 356.0f
-    // }, 18.0f, 2.0f, (Color){ 120, 150, 180, 220 });
 }
