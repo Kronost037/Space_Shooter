@@ -37,7 +37,9 @@ static Rectangle getEntityRect(const Entity *entity, const Texture2D texture, fl
 }
 
 static Vector2 getEntityCenter(const Entity *entity, const Texture2D texture, float scale) {
+    
     Rectangle r = getEntityRect(entity, texture, scale);
+    
     return (Vector2){ r.x + r.width * 0.5f, r.y + r.height * 0.5f };
 }
 
@@ -222,7 +224,7 @@ static void initializePlayer(Entity *player) {
     player->lives = MAX_LIVES;
     player->entity_pos = (Vector2){ 40.0f, 100.0f };
     player->entity_speed = 600.0f;
-    player->entity_dir = (Vector2){ 0.0f, 0.0f };
+    player->entity_dir = (Vector2){0};
     player->entity_shooting_dir = (Vector2){ 0.0f, -1.0f };
     player->entity_shooting_cooldown = 0.0f;
     player->sectorX = 0;
@@ -238,12 +240,12 @@ static void syncCameraLayout(Game *game) {
 }
 
 static void initializeWorld(Game *game) {
-    game->world.cols = WORLD_COLS;
-    game->world.rows = WORLD_ROWS;
-    game->world.sectorWidth = WORLD_SECTOR_WIDTH;
-    game->world.sectorHeight = WORLD_SECTOR_HEIGHT;
-    game->world.width = WORLD_COLS * WORLD_SECTOR_WIDTH;
-    game->world.height = WORLD_ROWS * WORLD_SECTOR_HEIGHT;
+    game->world.cols          = WORLD_COLS;
+    game->world.rows          = WORLD_ROWS;
+    game->world.sectorWidth   = WORLD_SECTOR_WIDTH;
+    game->world.sectorHeight  = WORLD_SECTOR_HEIGHT;
+    game->world.width         = WORLD_COLS * WORLD_SECTOR_WIDTH;
+    game->world.height        = WORLD_ROWS * WORLD_SECTOR_HEIGHT;
     game->world.playerSectorX = 0;
     game->world.playerSectorY = 0;
 }
@@ -292,8 +294,8 @@ static void spawnEnemy(Game *game) {
         Rectangle sector = getSectorRect(game, sx, sy);
         Vector2 pos = getRandomPointInsideRect(sector, enemySize);
 
-        *enemy = (Entity){0};
-        enemy->lives = 1;
+        *enemy              = (Entity){0};
+        enemy->lives        = 1;
         enemy->entity_speed = (float)GetRandomValue(250, 350);
         enemy->entity_pos = pos;
         enemy->entity_dir = (Vector2){ 0.0f, 0.0f };
@@ -395,18 +397,18 @@ static void initializeSound(GameSound *gamesound) {
 }
 
 void initializeGame(Game *game) {
-    *game = (Game){0};
-    game->quit = false;
-    game->showPanel = true;
-    game->currentState = STATE_MENU;
-    game->timer = 0.0f;
-    game->elapsedTime = 0.0f;
+    *game               = (Game){0};
+    game->quit          = false;
+    game->showPanel     = true;
+    game->currentState  = STATE_MENU;
+    game->timer         = 0.0f;
+    game->elapsedTime   = 0.0f;
     game->enemiesKilled = 0;
     game->enemySpeedMultiplier = ENEMY_SPEED_MULTIPLIER_START;
 
-    game->player.lives = MAX_LIVES;
-    game->playerName[0] = '\0';
-    game->scoreSubmitted = false;
+    game->player.lives      = MAX_LIVES;
+    game->playerName[0]     = '\0';
+    game->scoreSubmitted    = false;
     game->playerHitCooldown = 0.0f;
 
     game->entity_texture.Player = LoadTexture("src/Assets/ufo.png");
@@ -414,8 +416,10 @@ void initializeGame(Game *game) {
 
     refreshLayout(game);
     initializeWorld(game);
+
     game->camera = (Camera2D){0};
     game->camera.zoom = 1.0f;
+
     game->camera.rotation = 0.0f;
     syncCameraLayout(game);
 
@@ -481,10 +485,10 @@ static void makeBullet(Game *game) {
                 4.0f,
                 20.0f
             };
-            bullet->projectile_dir = player->entity_shooting_dir;
+            bullet->projectile_dir   = player->entity_shooting_dir;
             bullet->projectile_speed = 800.0f;
             bullet->projectile_color = RED;
-            bullet->active = true;
+            bullet->active           = true;
             break;
         }
     }
@@ -551,7 +555,7 @@ static void updateEnemies(Game *game) {
             enemy->last_seen = game->elapsedTime;
         }
 
-        Rectangle enemyRec = getEntityRect(enemy, game->entity_texture.Enemy_1, ENEMY_1_SCALE);
+        Rectangle enemyRec  = getEntityRect(enemy, game->entity_texture.Enemy_1, ENEMY_1_SCALE);
         Rectangle playerRec = getEntityRect(player, game->entity_texture.Player, PLAYER_SCALE);
 
         if (CheckCollisionRecs(enemyRec, playerRec)) {
