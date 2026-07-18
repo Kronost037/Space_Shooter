@@ -494,6 +494,30 @@ static void makeBullet(Game *game) {
     }
 }
 
+//-------------------------------------------------------------------------------
+
+//-------------DSR----------------
+static void moveEnemyTowardsPlayer(
+    Entity *enemy,
+    Vector2 playerCenter,
+    float dt,
+    Texture2D enemyTexture
+){
+    Vector2 dir = Vector2Subtract(
+        playerCenter,
+        getEntityCenter( enemy, enemyTexture, ENEMY_1_SCALE)
+    );
+
+    if (Vector2LengthSqr(dir) <= 0.0001f)  return;
+
+    dir = Vector2Normalize(dir);
+
+    enemy->entity_pos = Vector2Add(
+        enemy->entity_pos,
+        Vector2Scale(dir, enemy -> entity_speed * dt)
+    );
+}
+//-------------DSR----------------
 
 static void updateEnemies(Game *game) {
     float dt = GetFrameTime();
@@ -579,6 +603,8 @@ static void updateEnemies(Game *game) {
         }
     }
 }
+
+// -------------------------------------------------------------------------
 
 static void handleCollision(Game *game) {
     Entity *player = &game->player;

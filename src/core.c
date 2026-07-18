@@ -32,30 +32,34 @@ static void syncCameraLayout(Game *game) {
     };
 }
 
+static void updateMenu(Game *game){
+    if (!menuActionReady(game->menu)) return;
+
+    switch(menuConsumeAction(game->menu)){
+
+        case MENU_ACTION_START:
+        game -> playerName[0] = '\0';
+        game -> currentState = STATE_NAME_ENTRY;
+        break;
+
+        case MENU_ACTION_LEADERBOARD:
+        game->leaderboard.animTimer = 0.0f;
+        game->leaderboard.scroll = 0.0f;
+        game->leaderboard.targetScroll = 0.0f;
+        game->currentState = STATE_LEADERBOARD;
+        break;
+
+        case MENU_ACTION_EXIT:      game->quit = true;            break;
+        case MENU_ACTION_SETTING:                                 break;
+        case MENU_ACTION_NONE:                                    break;
+    }
+}
+
 static void handleGameState(Game *game) {
     game->menu->mousePos = GetMousePosition();
 
     switch (game->currentState) {
-    case STATE_MENU:
-        if (menuActionReady(game->menu)) {
-            MenuAction action = menuConsumeAction(game->menu);
-
-            if (action == MENU_ACTION_START) {
-                game->playerName[0] = '\0';
-                game->currentState = STATE_NAME_ENTRY;
-            } else if (action == MENU_ACTION_LEADERBOARD) {
-                game->leaderboard.animTimer = 0.0f;
-                game->leaderboard.scroll = 0.0f;
-                game->leaderboard.targetScroll = 0.0f;
-                game->currentState = STATE_LEADERBOARD;
-            } else if (action == MENU_ACTION_SETTING) {
-                
-            } else if (action == MENU_ACTION_EXIT) {
-                game->quit = true;
-            }
-        }
-        break;
-
+    case STATE_MENU:  updateMenu(game);     break;
     case STATE_NAME_ENTRY:
         updateNameEntry(game);
         
@@ -98,15 +102,12 @@ static void handleGameState(Game *game) {
         break;
 
     case STATE_GAME_OVER: {
-
         updateGameOver(game);
         break;
     }
 
     case STATE_LEADERBOARD:
-        if (IsKeyPressed(KEY_ESCAPE)) {
-            game->currentState = STATE_MENU;
-        }
+        if (IsKeyPressed(KEY_ESCAPE)) game->currentState = STATE_MENU;
         break;
 
     default:
@@ -151,22 +152,14 @@ int main(void) {
 
         switch (game.currentState){
 
-            case STATE_GAME:
-            runGamePhysics(&game);
-            break;
-
             case STATE_GAME_OVER:
             submitScoreIfNeeded(&game);
             ResumeMusicStream(game.menu->bg_song);
             break;
 
-            case STATE_MENU:
-            runMenuPhysics(&game);
-            break;
-
-            case STATE_LEADERBOARD:
-            leaderboardUpdate(&game.leaderboard);
-            break;
+            case STATE_GAME:        runGamePhysics(&game);                   break;
+            case STATE_MENU:        runMenuPhysics(&game);                   break;
+            case STATE_LEADERBOARD: leaderboardUpdate(&game.leaderboard);    break;
 
             default:
             updateMusicForCurrentState(&game);
