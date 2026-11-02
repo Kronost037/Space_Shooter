@@ -13,7 +13,7 @@
 #define ELITE_BEAM_THICKNESS 8.0f
 #define ELITE_BEAM_LENGTH 22.0f
 #define ELITE_BEAM_RETRY 0.25f
-#define ELITE_BEAM_WIDTH 50.0f
+#define ELITE_BEAM_WIDTH_RANGE 50.0f
 
 static float enemySpawnTimer = 0.0f;
 static bool eliteDeathAwarded[MAX_ELITES] = { 0 };
@@ -102,7 +102,7 @@ static bool eliteBeamBlocked(Game *game, const Entity *elite, Vector2 eliteCente
         if (!entityInSector(game, enemy, game->entity_texture.Enemy_1, ENEMY_1_SCALE, sx, sy)) continue;
 
         Vector2 enemyCenter = getEntityCenter(enemy, game->entity_texture.Enemy_1, ENEMY_1_SCALE);
-        if (pointSegmentDistanceSq(enemyCenter, eliteCenter, playerCenter) <= ELITE_BEAM_WIDTH * ELITE_BEAM_WIDTH) {
+        if (pointSegmentDistanceSq(enemyCenter, eliteCenter, playerCenter) <= ELITE_BEAM_WIDTH_RANGE * ELITE_BEAM_WIDTH_RANGE) {
             return true;
         }
     }
@@ -114,7 +114,7 @@ static bool eliteBeamBlocked(Game *game, const Entity *elite, Vector2 eliteCente
         if (!entityInSector(game, other, game->entity_texture.Enemy_1, ELITE_ENEMY_SCALE, sx, sy)) continue;
 
         Vector2 otherCenter = getEntityCenter(other, game->entity_texture.Enemy_1, ELITE_ENEMY_SCALE);
-        if (pointSegmentDistanceSq(otherCenter, eliteCenter, playerCenter) <= ELITE_BEAM_WIDTH * ELITE_BEAM_WIDTH) {
+        if (pointSegmentDistanceSq(otherCenter, eliteCenter, playerCenter) <= ELITE_BEAM_WIDTH_RANGE * ELITE_BEAM_WIDTH_RANGE) {
             return true;
         }
     }
