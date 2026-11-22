@@ -1,4 +1,5 @@
 #include "panel.h"
+#include "flight/mission.h"
 #include "ui/widgets.h"
 
 #define CYAN ((Color){96, 222, 255, 255})
@@ -67,6 +68,8 @@ static void drawRadar(const Game *game, Camera2D camera) {
         DrawPoly(mapPoint(grid, elite->ship.position), 4, 5.0f, 0.0f,
                  i == MAX_ELITES - 1 ? AMBER : WARDEN_ACCENT);
     }
+    Vector2 waypoint;
+    if (missionWaypoint(game, &waypoint)) DrawRing(mapPoint(grid, waypoint), 4, 6, 0, 360, 16, UI_ICE);
     DrawCircleV(mapPoint(grid, game->player.position), 4.0f, CYAN);
 }
 
@@ -157,9 +160,18 @@ void drawPanel(const Game *game, Camera2D camera) {
              36, pulse.y + 5, 18, ready ? CYAN : MUTED);
     bar((Rectangle){36, pulse.y + 47, 200, 4}, game->pulseCharge / PULSE_RECHARGE, CYAN);
 
-    const char *objective = game->wardensCleared < MAX_ELITES - 1 ?
-        TextFormat("WARDENS  %d / %d", game->wardensCleared, MAX_ELITES - 1) : "DESTROY THE CARRIER";
-    centered(game, objective, SCREEN_HEIGHT - 44, 21, game->wardensCleared < MAX_ELITES - 1 ? WARDEN_ACCENT : AMBER);
+    centered(game, missionTitle(game), SCREEN_HEIGHT - 44, 23, UI_ICE);
+    Vector2 waypoint;
+    if (missionWaypoint(game, &waypoint)) {
+        Vector2 p = GetWorldToScreen2D(waypoint, camera);
+        if (p.x < 40 || p.x > SCREEN_WIDTH - 40 || p.y < 40 || p.y > SCREEN_HEIGHT - 40) {
+            Vector2 delta = Vector2Subtract(p, (Vector2){750,450});
+            float scale = fminf(590 / fmaxf(fabsf(delta.x),1), 250 / fmaxf(fabsf(delta.y),1));
+            Vector2 marker = Vector2Add((Vector2){750,450}, Vector2Scale(delta, scale));
+            DrawRing(marker, 7, 10, 0, 360, 16, UI_ICE);
+            DrawLineEx(marker, Vector2Add(marker, Vector2Scale(Vector2Normalize(delta),20)), 3, UI_ICE);
+        }
+    }
     if (game->settings.timerEnabled) {
         int remaining = (int)ceilf(game->settings.timerMinutes * 60 - game->elapsedTime);
         const char *clock = TextFormat("%d:%02d", remaining / 60, remaining % 60);

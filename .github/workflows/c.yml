@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential wget cmake unzip xorg-dev xvfb
+        run: sudo apt-get update && sudo apt-get install -y build-essential wget cmake unzip xorg-dev xvfb xdotool
 
       - name: Compile build helper
         run: gcc build.c -o build
@@ -59,7 +59,7 @@ jobs:
           from PIL import Image
           from pathlib import Path
           import base64, io
-          for name in ('menu', 'carrier', 'settings-640', 'settings', 'menu-wide'):
+          for name in ('menu', 'carrier', 'settings', 'escort', 'beacon'):
               im = Image.open(Path('screenshots') / (name + '.png')).convert('RGB')
               im.thumbnail((800, 500))
               out = io.BytesIO()

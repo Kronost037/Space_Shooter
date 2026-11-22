@@ -1,4 +1,5 @@
 #include "flight.h"
+#include "mission.h"
 
 bool eliteCanAttack(const Game *game, int index) {
     const Elite *elite = &game->elites[index];
@@ -55,14 +56,14 @@ void damageElite(Game *game, int index, int amount) {
     static const char *reports[] = {
         "Aster Lead: first transport through. We see your beacon.",
         "Aster Two: the hospital ship is clear. One relay remains.",
-        "Aster Rearguard: carrier revealed. Open the final corridor."
+        "Mercy Six: the final relay is clear."
     };
     game->dispatch = reports[game->wardensCleared - 1];
     game->dispatchTime = 3.6f;
     game->scoutRewards = 0;
     if (game->player.lives < MAX_LIVES) ++game->player.lives;
     game->pulseCharge = fminf(PULSE_RECHARGE, game->pulseCharge + 3.0f);
-    if (game->wardensCleared == MAX_ELITES - 1) game->elites[MAX_ELITES - 1].unlocked = true;
+    if (game->wardensCleared == MAX_ELITES - 1) beginEscort(game, elite->ship.position);
 }
 
 static int patternCount(const Elite *elite, int index) {

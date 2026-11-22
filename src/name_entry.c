@@ -19,8 +19,8 @@ void drawNameEntry(Game *game) {
     uiSurface((Rectangle){302,162,896,571});
     uiLabel(game, "TRANSMISSION   /   ASTER CONVOY", 361, 217, 21, UI_ICE);
     uiTitle(game, "The last crossing", 356, 251, 70);
-    uiLabel(game, "Three Wardens are jamming the jump corridor.", 361, 351, 27, UI_PAPER);
-    uiLabel(game, uiCompact() ? "Silence the relays to expose the Carrier." : "Silence their relays. The Carrier will have to break cover.", 361, 395, 25, UI_MUTED);
+    uiLabel(game, "Two silent beacons hold the convoy's last route.", 361, 351, 27, UI_PAPER);
+    uiLabel(game, uiCompact() ? "Reach both beacons. Follow the convoy signal." : "Fly through both beacons, then silence the three Wardens.", 361, 395, 25, UI_MUTED);
     uiLabel(game, "Pilot callsign", 361, 480, 23, UI_ICE);
     DrawRectangleRec((Rectangle){361,521,778,69}, (Color){24,41,55,255});
     const char *name = game->playerName;

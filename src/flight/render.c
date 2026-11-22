@@ -1,4 +1,5 @@
 #include "flight.h"
+#include "mission.h"
 #include "../arena.h"
 
 static void drawShip(Texture2D texture, Vector2 position, Vector2 heading, float size,
@@ -25,6 +26,7 @@ void drawGame(Game *game) {
 
     BeginMode2D(camera);
     drawSectorLandmarks(game, camera);
+    drawMission(game);
 
     float time = (float)game->elapsedTime;
     for (int i = 0; i < MAX_ELITES; ++i) {

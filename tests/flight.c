@@ -2,10 +2,39 @@
 #include "../src/flight/flight.h"
 #include "../src/ui/display.h"
 #include "../src/menu.h"
+#include "../src/flight/mission.h"
 #include "../src/settings.h"
 #include <string.h>
 #include <assert.h>
 #include <rlgl.h>
+
+static void acquireFixes(Game *game) {
+    assert(game->mission.stage == MISSION_SURVEY && !game->elites[0].unlocked);
+    for (int i = 0; i < 2; ++i) {
+        game->player.previous = game->player.position = game->mission.waypoint;
+        advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
+    }
+    assert(game->mission.stage == MISSION_RELAYS && game->elites[0].unlocked);
+    game->camera.target = game->previousCameraTarget = game->player.position;
+}
+
+static void escort(Game *game) {
+    assert(game->mission.stage == MISSION_ESCORT && !game->elites[3].unlocked);
+    game->scouts[0] = (Ship){.lives = 1, .position = game->mission.transport};
+    Vector2 origin = game->mission.transport;
+    game->player.position = origin;
+    advanceMission(game, STEP);
+    assert(game->mission.contested && Vector2Equals(origin, game->mission.transport));
+    memset(game->scouts, 0, sizeof game->scouts);
+    game->player.position.x += 350;
+    advanceMission(game, STEP);
+    assert(Vector2Equals(origin, game->mission.transport));
+    for (int i = 0; i < 800 && game->mission.stage == MISSION_ESCORT; ++i) {
+        game->player.position = game->mission.transport;
+        advanceMission(game, STEP);
+    }
+    assert(game->mission.stage == MISSION_CARRIER && game->elites[3].unlocked);
+}
 
 static void placeElite(Game *game, int index, Vector2 at) {
     Elite *elite = &game->elites[index];
@@ -21,6 +50,8 @@ static void testFlight(Game *game) {
     for (int d = EASY; d <= INSANE; ++d) {
         game->settings.difficulty = (Difficulty)d;
         resetRun(game);
+        acquireFixes(game);
+        int surveyScore = game->score;
         Elite *warden = &game->elites[0];
         Vector2 edge = GetScreenToWorld2D((Vector2){10,16}, game->camera);
         placeElite(game, 0, edge);
@@ -49,7 +80,7 @@ static void testFlight(Game *game) {
         advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
         int escorts = 0;
         for (int i = 0; i < MAX_ENEMIES; ++i) escorts += game->scouts[i].lives;
-        assert(escorts == 1 && game->scoutKills == 0 && game->score == 0);
+        assert(escorts == 1 && game->scoutKills == 0 && game->score == surveyScore);
 
         game->settings.timerEnabled = true;
         game->settings.timerMinutes = 1;
@@ -59,8 +90,10 @@ static void testFlight(Game *game) {
         game->settings.timerEnabled = false;
         resetRun(game);
         assert(!game->timedOut && game->elapsedTime == 0 && game->score == 0);
+        acquireFixes(game);
         for (int i = 0; i < 3; ++i) damageElite(game, i, 200);
-        assert(game->elites[3].unlocked && game->wardensCleared == 3);
+        assert(game->wardensCleared == 3);
+        escort(game);
         damageElite(game, 3, 200);
         assert(game->elites[3].ship.lives == game->elites[3].maxLives / 2);
         damageElite(game, 3, 200);
@@ -106,6 +139,7 @@ static void testProjectilePool(Game *game) {
     assert(addShot(game, -1, game->player.position, (Vector2){1,0}, 1, 5, 1));
 
     resetRun(game);
+    acquireFixes(game);
     const Vector2 hidden = Vector2Add(game->camera.target, (Vector2){1000,0});
     placeElite(game, 0, hidden);
     contact(game, -1, hidden);
@@ -118,6 +152,24 @@ static void testProjectilePool(Game *game) {
     advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
     assert(game->elites[0].ship.lives == game->elites[0].maxLives - 1);
     puts("PASS: saturated pool, pulse discharge, cooldown, blind fire and swept hit after camera movement");
+}
+
+static void testSeededWorlds(Game *game) {
+    // Copies borrow loaded assets. Each simulation owns its entity arrays and spawn generator.
+    Game other = *game;
+    game->settings = other.settings = DEFAULT_SETTINGS;
+    resetRunSeeded(game, 12345);
+    resetRunSeeded(&other, 12345);
+    for (int i = 0; i < 600; ++i) {
+        advanceFlight(game, STEP, (Vector2){0,1}, (Vector2){1,0}, false);
+        advanceFlight(&other, STEP, (Vector2){0,1}, (Vector2){1,0}, false);
+    }
+    assert(game->spawnSeed == other.spawnSeed && game->spawnSeed != 12345);
+    for (int i = 0; i < MAX_ENEMIES; ++i) {
+        assert(game->scouts[i].lives == other.scouts[i].lives);
+        assert(Vector2Equals(game->scouts[i].position, other.scouts[i].position));
+    }
+    puts("PASS: interleaved same-seed worlds reproduce patrol placements");
 }
 
 static void testPatterns(Game *game) {
@@ -198,6 +250,7 @@ int main(void) {
     testTimingAndMovement(&game);
     testProjectilePool(&game);
     testPatterns(&game);
+    testSeededWorlds(&game);
     game.settings = DEFAULT_SETTINGS;
     game.settings.timerEnabled = true;
     resetRun(&game);
@@ -208,7 +261,14 @@ int main(void) {
     snapshot(&game, world, STATE_MENU, "screenshots/menu.png");
     snapshot(&game, world, STATE_SETTING, "screenshots/settings.png");
     snapshot(&game, world, STATE_NAME_ENTRY, "screenshots/briefing.png");
+    snapshot(&game, world, STATE_GAME, "screenshots/beacon.png");
+    acquireFixes(&game);
     for (int i = 0; i < 3; ++i) damageElite(&game, i, 200);
+    game.player.position = Vector2Add(game.mission.transport, (Vector2){150,120});
+    game.player.previous = game.camera.target = game.previousCameraTarget = game.player.position;
+    snapshot(&game, world, STATE_GAME, "screenshots/escort.png");
+    escort(&game);
+    game.player.previous = game.camera.target = game.previousCameraTarget = game.player.position;
     Elite *carrier = &game.elites[3];
     placeElite(&game, 3, Vector2Add(game.player.position, (Vector2){250,-100}));
     carrier->phase = ELITE_WARNING;

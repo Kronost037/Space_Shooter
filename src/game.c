@@ -1,4 +1,5 @@
 #include "flight/flight.h"
+#include "flight/mission.h"
 #include "game.h"
 #include "menu.h"
 
@@ -116,17 +117,26 @@ static void updateCamera(Game *game, Vector2 move) {
     game->camera.target = Vector2Lerp(game->camera.target, target, 1.0f - expf(-9.0f * STEP));
 }
 
+static int spawnRange(Game *game, int lo, int hi) {
+    uint32_t x = game->spawnSeed;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    game->spawnSeed = x;
+    return lo + (int)(x % (uint32_t)(hi - lo + 1));
+}
+
 static void spawnScout(Game *game) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (game->scouts[i].lives > 0) continue;
         Vector2 position = {0};
         for (int attempt = 0; attempt < 20; ++attempt) {
-            float angle = (float)GetRandomValue(0, 359) * DEG2RAD;
+            float angle = (float)spawnRange(game, 0, 359) * DEG2RAD;
             position = Vector2Add(game->player.position, Vector2Scale(direction(angle), 870.0f));
             if (position.x < 36.0f || position.x > WORLD_WIDTH - 36.0f ||
                 position.y < 36.0f || position.y > WORLD_HEIGHT - 36.0f ||
                 onScreen(game->camera, position, -36.0f)) continue;
-            float speed = (float)GetRandomValue(260, 325);
+            float speed = (float)spawnRange(game, 260, 325);
             game->scouts[i] = (Ship){ .position = position, .previous = position,
                                      .speed = speed, .lives = 1 };
             return;
@@ -268,6 +278,7 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
         updateScouts(game);
         for (int i = 0; i < MAX_ELITES && player->lives > 0; ++i) updateElite(game, i);
         if (player->lives > 0) updateShots(game);
+        if (player->lives > 0 && !game->missionCleared) advanceMission(game, STEP);
     }
 }
 
@@ -310,11 +321,17 @@ void runGamePhysics(Game *game) {
 }
 
 void resetRun(Game *game) {
+    resetRunSeeded(game, (uint32_t)GetRandomValue(1, 2147483646));
+}
+
+void resetRunSeeded(Game *game, uint32_t seed) {
+    game->spawnSeed = seed ? seed : 1u;
     memset(game->scouts, 0, sizeof(game->scouts));
     memset(game->elites, 0, sizeof(game->elites));
     memset(game->shots, 0, sizeof(game->shots));
     memset(game->particles, 0, sizeof(game->particles));
     Vector2 start = { WORLD_WIDTH * 0.50f, WORLD_HEIGHT * 0.50f };
+    startMission(game, start);
     game->player = (Ship){ .position = start, .previous = start, .heading = {0, -1},
                            .speed = 505.0f, .lives = MAX_LIVES };
     static const Vector2 sites[MAX_ELITES] = {
@@ -328,7 +345,7 @@ void resetRun(Game *game) {
             .maxLives = hull,
             .ship = { .position = position, .previous = position,
                       .lives = hull },
-            .unlocked = !isCarrier(i), .time = 0.55f
+            .time = 0.55f
         };
     }
 

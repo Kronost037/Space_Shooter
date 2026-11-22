@@ -80,7 +80,18 @@ typedef struct {
     bool unlocked;
 } Elite;
 
+typedef enum { MISSION_SURVEY, MISSION_RELAYS, MISSION_ESCORT, MISSION_CARRIER } MissionStage;
+
+typedef struct {
+    MissionStage stage;
+    int fixes;
+    Vector2 waypoint, transport;
+    bool contested;
+} Mission;
+
 struct S_game {
+    Mission mission;
+    uint32_t spawnSeed;
     bool quit;
     State currentState;
     float screenAge;
@@ -142,5 +153,6 @@ void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool
 void runGamePhysics(Game *game);
 void drawGame(Game *game);
 void resetRun(Game *game);
+void resetRunSeeded(Game *game, uint32_t seed);
 
 #endif
