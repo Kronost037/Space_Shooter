@@ -60,7 +60,15 @@ bool addShot(Game *game, int owner, Vector2 position, Vector2 heading,
                     float speed, float radius, float life) {
     for (int i = 0; i < MAX_SHOTS; ++i) {
         if (game->shots[i].life > 0.0f) continue;
+        unsigned targets = 0;
+        if (owner < 0) {
+            for (int e = 0; e < MAX_ELITES; ++e) {
+                if (onScreen(game->camera, game->elites[e].ship.position, -eliteRadius(e) * 1.2f))
+                    targets |= 1u << e;
+            }
+        }
         game->shots[i] = (Shot){
+            .visibleTargets = targets,
             .position = position, .previous = position, .velocity = Vector2Scale(heading, speed),
             .radius = radius, .life = life, .owner = owner
         };
@@ -211,6 +219,8 @@ static void updateShots(Game *game) {
         for (int elite = 0; elite < MAX_ELITES; ++elite) {
             Elite *target = &game->elites[elite];
             if (!target->unlocked || target->ship.lives <= 0 || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
+            if (!(shot->visibleTargets & (1u << elite)) &&
+                !onScreen(game->camera, target->ship.position, -eliteRadius(elite) * 1.2f)) continue;
             shot->life = 0.0f;
             bool exposed = target->phase == ELITE_RECOVERY;
             damageElite(game, elite, exposed ? 2 : 1);
@@ -221,8 +231,7 @@ static void updateShots(Game *game) {
 }
 
 static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
-    ++game->flightTicks;
-    game->elapsedTime = game->flightTicks / 120.0f;
+    game->dispatchTime = fmaxf(0.0f, game->dispatchTime - STEP);
     game->scoreToast = fmaxf(0.0f, game->scoreToast - STEP);
     game->pulseAnimation = fmaxf(0.0f, game->pulseAnimation - STEP);
     game->playerHitCooldown = fmaxf(0.0f, game->playerHitCooldown - STEP);
@@ -260,10 +269,6 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
         for (int i = 0; i < MAX_ELITES && player->lives > 0; ++i) updateElite(game, i);
         if (player->lives > 0) updateShots(game);
     }
-    unsigned limit = (unsigned)game->settings.timerMinutes * 60u * 120u;
-    if (game->settings.timerEnabled && game->flightTicks >= limit && player->lives > 0 && !game->missionCleared) {
-        game->timedOut = true;
-    }
 }
 
 static void updateEffects(Game *game, float dt) {
@@ -275,23 +280,33 @@ static void updateEffects(Game *game, float dt) {
     }
 }
 
-void runGamePhysics(Game *game) {
-    float dt = fminf(GetFrameTime(), 0.10f);
-    updateEffects(game, dt);
+static void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse) {
+    float effectTime = (float)fmin(frameTime, 0.10);
+    updateEffects(game, effectTime);
     if (game->player.lives <= 0 || game->missionCleared || game->timedOut) {
-        game->outcomeTime += dt;
+        game->outcomeTime += effectTime;
         return;
     }
 
-    Vector2 move = keyboardAxis(KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN);
-    Vector2 aim = keyboardAxis(KEY_A, KEY_D, KEY_W, KEY_S);
-    if (IsKeyPressed(KEY_SPACE)) game->pulseQueued = true;
-    game->accumulator += dt;
-    while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared && !game->timedOut) {
+    double limit = game->settings.timerMinutes * 60.0;
+    double activeTime = game->settings.timerEnabled ? fmin(frameTime, limit - game->elapsedTime) : frameTime;
+    game->elapsedTime += activeTime;
+    // Catch-up work is bounded, but a slow frame still counts against the flight clock.
+    game->accumulator += (float)fmin(activeTime, 0.10);
+    game->pulseQueued |= pulse;
+    while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared) {
         step(game, move, aim, game->pulseQueued);
         game->pulseQueued = false;
         game->accumulator -= STEP;
     }
+    game->timedOut = game->settings.timerEnabled && game->elapsedTime >= limit &&
+                     game->player.lives > 0 && !game->missionCleared;
+}
+
+void runGamePhysics(Game *game) {
+    Vector2 move = keyboardAxis(KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN);
+    Vector2 aim = keyboardAxis(KEY_A, KEY_D, KEY_W, KEY_S);
+    advanceFlight(game, GetFrameTime(), move, aim, IsKeyPressed(KEY_SPACE));
 }
 
 void resetRun(Game *game) {
@@ -326,7 +341,8 @@ void resetRun(Game *game) {
     game->accumulator = 0.0f;
     game->outcomeTime = 0.0f;
     game->elapsedTime = 0.0f;
-    game->flightTicks = 0;
+    game->dispatchTime = 0;
+    game->dispatch = NULL;
     game->timedOut = false;
     game->spawnTimer = 0.9f;
     game->fireCooldown = 0.0f;

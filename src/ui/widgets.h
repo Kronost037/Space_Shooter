@@ -11,6 +11,9 @@
 
 void uiBackdrop(const Game *game, float time);
 void uiSurface(Rectangle area);
+bool uiCompact(void);
+float uiTextSize(float size);
+float uiTextWidth(const Game *game, const char *text, float size);
 void uiLabel(const Game *game, const char *text, float x, float y, float size, Color color);
 void uiTitle(const Game *game, const char *text, float x, float y, float size);
 void uiButton(const Game *game, Rectangle bounds, const char *label, bool selected);

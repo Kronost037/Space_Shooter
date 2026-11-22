@@ -1,4 +1,5 @@
 #include "panel.h"
+#include "ui/widgets.h"
 
 #define CYAN ((Color){96, 222, 255, 255})
 #define MUTED ((Color){161, 181, 215, 255})
@@ -11,11 +12,11 @@ static void card(Rectangle rect, Color accent) {
 }
 
 static void drawHudText(const Game *game, const char *label, float x, float y, float size, Color color) {
-    DrawTextEx(game->bodyFont, label, (Vector2){x, y}, size, 0.8f, color);
+    uiLabel(game, label, x, y, size, color);
 }
 
 static void centered(const Game *game, const char *label, float y, float size, Color color) {
-    float width = MeasureTextEx(game->bodyFont, label, size, 0.8f).x;
+    float width = uiTextWidth(game, label, size);
     drawHudText(game, label, (SCREEN_WIDTH - width) * 0.5f, y, size, color);
 }
 
@@ -36,7 +37,7 @@ static void drawRadar(const Game *game, Camera2D camera) {
     Rectangle panel = { SCREEN_WIDTH - 225, 22, 203, 181 };
     Rectangle grid = { panel.x + 13, panel.y + 36, panel.width - 26, panel.height - 51 };
     card(panel, CYAN);
-    drawHudText(game, "SECTOR RADAR", (int)panel.x + 13, (int)panel.y + 10, 18, MUTED);
+    drawHudText(game, uiCompact() ? "RADAR" : "SECTOR RADAR", panel.x + 13, panel.y + 3, 18, MUTED);
     DrawRectangleLinesEx(grid, 1.0f, Fade(MUTED, 0.40f));
 
     for (int x = 1; x < WORLD_COLS; ++x) {
@@ -98,13 +99,13 @@ static void drawObjective(const Game *game, Camera2D camera) {
         bar((Rectangle){SCREEN_WIDTH * 0.5f - 155.0f, 51, 310, 6},
             (float)elite->ship.lives / (float)elite->maxLives, accent);
         if (elite->phase == ELITE_WARNING) {
-            const char *attack = elite->attack == ATTACK_LANES ? "LANE BATTERY" : elite->attack == ATTACK_LANCE ? (elite->time > 0.48f ? "TRACKING" : "LANCE LOCKED") :
+            const char *attack = elite->attack == ATTACK_PINCER ? "CROSSING BATTERIES" : elite->attack == ATTACK_LANES ? "LANE BATTERY" : elite->attack == ATTACK_LANCE ? (elite->time > 0.48f ? "TRACKING" : "LANCE LOCKED") :
                                  elite->attack == ATTACK_RING ? "RING BURST" : "FAN VOLLEY";
-            centered(game, attack, 61, 19, AMBER);
+            centered(game, attack, 67, 19, AMBER);
         } else if (elite->phase == ELITE_RECOVERY) {
-            centered(game, "CORE EXPOSED   /   DOUBLE DAMAGE", 61, 19, CYAN);
+            centered(game, compact ? "CORE EXPOSED" : "CORE EXPOSED   /   DOUBLE DAMAGE", 67, 19, CYAN);
         } else if (carrier) {
-            centered(game, "ARMORED", 61, 19, MUTED);
+            centered(game, "ARMORED", 67, 19, MUTED);
         }
     } else {
         Vector2 center = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
@@ -122,22 +123,24 @@ static void drawObjective(const Game *game, Camera2D camera) {
                      Vector2Add(Vector2Subtract(marker, Vector2Scale(arrow, 7.0f)), Vector2Scale(wing, 7.0f)),
                      accent);
         const char *label = carrier ? "CARRIER" : "WARDEN";
-        drawHudText(game, label, marker.x - MeasureTextEx(game->bodyFont, label, 17.0f, 0.8f).x * 0.5f, marker.y + 13.0f, 17.0f, accent);
+        drawHudText(game, label, marker.x - uiTextWidth(game, label, 17) * 0.5f, marker.y + 13.0f, 17.0f, accent);
     }
 }
 
 void drawPanel(const Game *game, Camera2D camera) {
-    card((Rectangle){22, 22, 228, 120}, CYAN);
-    drawHudText(game, "HULL", 36, 33, 15, MUTED);
+    bool compact = uiCompact();
+    card((Rectangle){22, 22, 228, compact ? 108 : 135}, CYAN);
+    drawHudText(game, "HULL", 36, 29, 18, MUTED);
     for (int i = 0; i < MAX_LIVES; ++i) {
-        DrawRectangleRounded((Rectangle){37.0f + (float)i * 24.0f, 56, 17, 7}, 0.7f, 6,
+        DrawRectangleRounded((Rectangle){37.0f + (float)i * 24.0f, 63, 17, 7}, 0.7f, 6,
                              i < game->player.lives ? CYAN : (Color){42, 52, 77, 255});
     }
-    drawHudText(game, "SCORE", 133, 33, 15, MUTED);
-    drawHudText(game, TextFormat("%05d", game->score), 133, 48, 32, RAYWHITE);
-    drawHudText(game, TextFormat("SECTOR THREAT %d", 1 + game->wardensCleared), 36, 88, 15, MUTED);
-    drawHudText(game, TextFormat("SCOUT REWARDS  %d / %d", game->scoutRewards, SCOUT_REWARDS_PER_STAGE),
-             36, 110, 17, MUTED);
+    drawHudText(game, "SCORE", 131, 29, 18, MUTED);
+    drawHudText(game, TextFormat("%d", game->score), 131, 60, 32, RAYWHITE);
+    drawHudText(game, TextFormat("Threat %d", 1 + game->wardensCleared), 36, compact ? 87 : 91, 21, MUTED);
+    if (!compact)
+        drawHudText(game, TextFormat("Bounties   %d / %d", game->scoutRewards, SCOUT_REWARDS_PER_STAGE),
+                    36, 121, 20, MUTED);
     if (game->scoreToast > 0.0f) {
         drawHudText(game, TextFormat("+%d", game->lastAward), GetWorldToScreen2D(game->payoutPosition, camera).x, GetWorldToScreen2D(game->payoutPosition, camera).y - 35, 20, Fade(CYAN, game->scoreToast / 0.85f));
     }
@@ -146,12 +149,12 @@ void drawPanel(const Game *game, Camera2D camera) {
     drawObjective(game, camera);
 
     bool ready = game->pulseCharge >= PULSE_RECHARGE;
-    Rectangle pulse = {22, 150, 228, 54};
+    Rectangle pulse = {22, compact ? 136 : 165, 228, 62};
     card(pulse, CYAN);
-    drawHudText(game, ready ? "SPACE  /  PULSE READY" :
+    drawHudText(game, ready ? (compact ? "PULSE READY" : "SPACE  /  PULSE READY") :
              TextFormat("PULSE  /  %.1fs", PULSE_RECHARGE - game->pulseCharge),
-             36, 161, 16, ready ? CYAN : MUTED);
-    bar((Rectangle){36, 187, 200, 4}, game->pulseCharge / PULSE_RECHARGE, CYAN);
+             36, pulse.y + 5, 18, ready ? CYAN : MUTED);
+    bar((Rectangle){36, pulse.y + 47, 200, 4}, game->pulseCharge / PULSE_RECHARGE, CYAN);
 
     const char *objective = game->wardensCleared < MAX_ELITES - 1 ?
         TextFormat("WARDENS  %d / %d", game->wardensCleared, MAX_ELITES - 1) : "DESTROY THE CARRIER";
@@ -159,10 +162,12 @@ void drawPanel(const Game *game, Camera2D camera) {
     if (game->settings.timerEnabled) {
         int remaining = (int)ceilf(game->settings.timerMinutes * 60 - game->elapsedTime);
         const char *clock = TextFormat("%d:%02d", remaining / 60, remaining % 60);
-        drawHudText(game, clock, 36, 215, 26, remaining <= 15 ? AMBER : RAYWHITE);
+        drawHudText(game, clock, 36, pulse.y + 64, 26, remaining <= 15 ? AMBER : RAYWHITE);
     }
-    if (game->elapsedTime < 12.0f) {
-        centered(game, "ARROWS MOVE   /   WASD FIRE   /   M RADAR", SCREEN_HEIGHT - 71, 18,
+    if (game->dispatchTime > 0 && game->dispatch) {
+        centered(game, game->dispatch, SCREEN_HEIGHT - (compact ? 95 : 82), 23, UI_PAPER);
+    } else if (game->elapsedTime < 12.0f) {
+        centered(game, "ARROWS MOVE   /   WASD FIRE   /   M RADAR", SCREEN_HEIGHT - (compact ? 91 : 71), 18,
                  Fade(MUTED, Clamp((12.0f - game->elapsedTime) / 2.0f, 0.0f, 1.0f)));
     }
 }

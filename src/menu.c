@@ -66,7 +66,7 @@ static void drawPatrol(const Game *game, float time) {
     }
     Texture2D ship = game->pilotTexture;
     if (IsTextureValid(ship)) {
-        float size = 320, h = size * ship.height / ship.width;
+        float size = 380, h = size * ship.height / ship.width;
         DrawTexturePro(ship, (Rectangle){0,0,(float)ship.width,(float)ship.height},
                        (Rectangle){center.x,center.y,size,h}, (Vector2){size / 2,h / 2},
                        25 + 3 * sinf(time * 0.42f), WHITE);
@@ -80,14 +80,14 @@ void drawMenu(Game *game) {
     uiLabel(game, "ASTER CONVOY   /   FLIGHT COMMAND", 94, 104, 22, UI_ICE);
     uiTitle(game, "SECTOR SIEGE", 86, 151, 108);
     uiLabel(game, "The convoy has one jump left.", 94, 295, 32, UI_PAPER);
-    uiLabel(game, "Break the blockade before the last ship crosses.", 95, 347, 24, UI_MUTED);
+    uiLabel(game, uiCompact() ? "Break the blockade." : "Break the blockade before the last ship crosses.", 95, 347, 24, UI_MUTED);
     for (int i = 0; i < 4; ++i) {
         Rectangle row = choiceBounds(i);
         uiButton(game, row, choices[i].label, i == game->menu->focus);
         if (i == game->menu->focus)
             DrawRectangle((int)(row.x + row.width - 34), (int)(row.y + 28), 12, 2, UI_INK);
     }
-    uiLabel(game, "Arrow keys to select    /    Enter to confirm", 94, 802, 20, UI_MUTED);
+    uiLabel(game, "Arrows to select    /    Enter to confirm", 94, 802, 20, UI_MUTED);
     if (game->menu->pending)
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, Clamp(game->menu->transition / 0.16f, 0, 1)));
 }

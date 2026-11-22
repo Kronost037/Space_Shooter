@@ -13,8 +13,21 @@ void uiSurface(Rectangle area) {
     DrawRectangle((int)area.x, (int)area.y, 60, 3, UI_AMBER);
 }
 
+bool uiCompact(void) {
+    return fminf((float)GetScreenWidth() / SCREEN_WIDTH, (float)GetScreenHeight() / SCREEN_HEIGHT) < 0.62f;
+}
+
+float uiTextSize(float size) {
+    float scale = fminf((float)GetScreenWidth() / SCREEN_WIDTH, (float)GetScreenHeight() / SCREEN_HEIGHT);
+    return fmaxf(size, 15.0f / fmaxf(scale, 0.4f));
+}
+
+float uiTextWidth(const Game *game, const char *text, float size) {
+    return MeasureTextEx(game->bodyFont, text, uiTextSize(size), 0).x;
+}
+
 void uiLabel(const Game *game, const char *text, float x, float y, float size, Color color) {
-    DrawTextEx(game->bodyFont, text, (Vector2){roundf(x),roundf(y)}, size, 0, color);
+    DrawTextEx(game->bodyFont, text, (Vector2){roundf(x),roundf(y)}, uiTextSize(size), 0, color);
 }
 
 void uiTitle(const Game *game, const char *text, float x, float y, float size) {
@@ -24,7 +37,7 @@ void uiTitle(const Game *game, const char *text, float x, float y, float size) {
 void uiButton(const Game *game, Rectangle bounds, const char *label, bool selected) {
     DrawRectangleRec(bounds, selected ? UI_AMBER : (Color){22,37,51,255});
     DrawRectangleLinesEx(bounds, 1, selected ? UI_AMBER : (Color){70,90,103,255});
-    uiLabel(game, label, bounds.x + 19, bounds.y + (bounds.height - 25) / 2, 25,
+    uiLabel(game, label, bounds.x + 19, bounds.y + (bounds.height - uiTextSize(25)) / 2, 25,
             selected ? UI_INK : UI_PAPER);
 }
 

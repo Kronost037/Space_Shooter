@@ -52,12 +52,12 @@ static void testFlight(Game *game) {
 
         game->settings.timerEnabled = true;
         game->settings.timerMinutes = 1;
-        game->flightTicks = 7199;
-        step(game, (Vector2){0}, (Vector2){0}, false);
+        game->elapsedTime = 59.25;
+        advanceFlight(game, 2.5, (Vector2){0}, (Vector2){0}, false);
         assert(game->timedOut && game->elapsedTime == 60 && !game->missionCleared);
         game->settings.timerEnabled = false;
         resetRun(game);
-        assert(!game->timedOut && game->flightTicks == 0 && game->score == 0);
+        assert(!game->timedOut && game->elapsedTime == 0 && game->score == 0);
         for (int i = 0; i < 3; ++i) damageElite(game, i, 200);
         assert(game->elites[3].unlocked && game->wardensCleared == 3);
         damageElite(game, 3, 200);
@@ -70,14 +70,29 @@ static void testFlight(Game *game) {
 
 static void snapshot(Game *game, RenderTexture2D world, State state, const char *file) {
     game->currentState = state;
+    game->screenAge = 1;
     BeginDrawing();
     renderFrame(game, world, screenViewport());
     rlDrawRenderBatchActive();
     Image img = LoadImageFromScreen();
-    assert(IsImageValid(img));
+    assert(IsImageValid(img) && img.width == GetRenderWidth() && img.height == GetRenderHeight());
     assert(ExportImage(img, file));
     UnloadImage(img);
     EndDrawing();
+}
+
+static void resizeWindow(int width, int height) {
+    SetWindowSize(width, height);
+    // GLFW reports framebuffer changes through the event pump.
+    for (int i = 0; i < 12; ++i) {
+        BeginDrawing();
+        ClearBackground(BLACK);
+        EndDrawing();
+        if (GetRenderWidth() == width && GetRenderHeight() == height &&
+            GetScreenWidth() == width && GetScreenHeight() == height) return;
+        WaitTime(0.015);
+    }
+    assert(!"Framebuffer resize timed out");
 }
 
 int main(void) {
@@ -110,14 +125,17 @@ int main(void) {
     carrier->aim = 2.75f;
     carrier->time = 0.25f;
     carrier->duration = 0.8f;
+    game.elapsedTime = 82.5;
+    game.dispatchTime = 0;
     snapshot(&game, world, STATE_GAME, "screenshots/carrier.png");
     snapshot(&game, world, STATE_PAUSE, "screenshots/paused.png");
     game.timedOut = true;
+    game.elapsedTime = game.settings.timerMinutes * 60;
     snapshot(&game, world, STATE_GAME_OVER, "screenshots/debrief.png");
     snapshot(&game, world, STATE_LEADERBOARD, "screenshots/records.png");
-    SetWindowSize(640, 480);
+    resizeWindow(640, 480);
     snapshot(&game, world, STATE_SETTING, "screenshots/settings-640.png");
-    SetWindowSize(1600, 700);
+    resizeWindow(1600, 700);
     snapshot(&game, world, STATE_MENU, "screenshots/menu-wide.png");
     UnloadRenderTexture(world);
     unloadGameAssets(&game);

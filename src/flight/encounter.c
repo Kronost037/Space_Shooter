@@ -7,8 +7,8 @@ bool eliteCanAttack(const Game *game, int index) {
     if (!elite->unlocked || elite->ship.lives <= 0) return false;
     Vector2 p = GetWorldToScreen2D(elite->ship.position, game->camera);
     if (!onScreen(game->camera, elite->ship.position, 12.0f)) return false;
-    bool behindStatus = p.x < 250 && p.y < 204;
-    bool behindRadar = game->showRadar && p.x > SCREEN_WIDTH - 225 && p.y < 203;
+    bool behindStatus = p.x >= 22 && p.x <= 250 && p.y >= 22 && p.y <= 227;
+    bool behindRadar = p.x >= SCREEN_WIDTH - 225 && p.x <= SCREEN_WIDTH - 22 && p.y >= 22 && p.y <= 203;
     return !behindStatus && !behindRadar;
 }
 
@@ -20,13 +20,17 @@ static void clearEliteShots(Game *game, int index) {
 
 void damageElite(Game *game, int index, int amount) {
     Elite *elite = &game->elites[index];
+    if (!elite->unlocked || elite->ship.lives <= 0 || amount <= 0) return;
     int previousLives = elite->ship.lives;
     elite->ship.lives -= amount;
     elite->ship.hitFlash = 0.11f;
     if (isCarrier(index) && previousLives > elite->maxLives / 2 && elite->ship.lives <= elite->maxLives / 2) {
         elite->ship.lives = elite->maxLives / 2;
         elite->phase = ELITE_IDLE;
-        elite->cycle = 2;
+        elite->cycle = 0;
+        elite->echo = false;
+        game->dispatch = "Carrier core at half hull. Watch for a second wave.";
+        game->dispatchTime = 3.4f;
         elite->time = 0.45f;
         clearEliteShots(game, index);
         burst(game, elite->ship.position, AMBER, 24);
@@ -48,6 +52,13 @@ void damageElite(Game *game, int index, int amount) {
 
     award(game, 100 + 50 * game->wardensCleared);
     ++game->wardensCleared;
+    static const char *reports[] = {
+        "Aster Lead: first transport through. We see your beacon.",
+        "Aster Two: the hospital ship is clear. One relay remains.",
+        "Aster Rearguard: carrier revealed. Open the final corridor."
+    };
+    game->dispatch = reports[game->wardensCleared - 1];
+    game->dispatchTime = 3.6f;
     game->scoutRewards = 0;
     if (game->player.lives < MAX_LIVES) ++game->player.lives;
     game->pulseCharge = fminf(PULSE_RECHARGE, game->pulseCharge + 3.0f);
@@ -55,6 +66,7 @@ void damageElite(Game *game, int index, int amount) {
 }
 
 static int patternCount(const Elite *elite, int index) {
+    if (elite->attack == ATTACK_PINCER) return 6;
     if (elite->attack == ATTACK_LANES) return 7;
     if (elite->attack == ATTACK_RING) return 18;
     return isCarrier(index) ? (elite->ship.lives <= elite->maxLives / 2 ? 9 : 7) : 5;
@@ -65,15 +77,24 @@ static float patternAngle(const Elite *elite, int ray, int count) {
         const float gap = 0.60f;
         return elite->aim + gap + (2.0f * PI - 2.0f * gap) * (float)ray / (float)(count - 1);
     }
+    if (elite->attack == ATTACK_PINCER) {
+        float side = ray < count / 2 ? -1.0f : 1.0f;
+        return elite->aim - side * 0.27f + (float)(ray % 3 - 1) * 0.10f;
+    }
     if (elite->attack == ATTACK_LANES) return elite->aim;
     return elite->aim + ((float)ray - (float)(count - 1) * 0.5f) * 0.15f;
 }
 
 static Vector2 muzzleOffset(const Elite *elite, int index, int ray, int count, Vector2 heading) {
     Vector2 offset = Vector2Scale(heading, eliteRadius(index));
+    if (elite->attack == ATTACK_PINCER) {
+        Vector2 axis = direction(elite->aim);
+        float side = ray < count / 2 ? -1.0f : 1.0f;
+        return Vector2Add(Vector2Scale(axis, 40.0f), Vector2Scale((Vector2){-axis.y, axis.x}, side * 65.0f));
+    }
     if (elite->attack == ATTACK_LANES) {
         float lane = (float)ray - (float)(count - 1) * 0.5f + (elite->cycle % 2 ? 0.5f : 0.0f);
-        offset = Vector2Add(offset, Vector2Scale((Vector2){-heading.y, heading.x}, lane * 56.0f));
+        offset = Vector2Add(offset, Vector2Scale((Vector2){-heading.y, heading.x}, lane * 64.0f));
     }
     return offset;
 }
@@ -116,11 +137,15 @@ void updateElite(Game *game, int index) {
 
     switch (elite->phase) {
     case ELITE_IDLE: {
-        static const Attack carrierPatterns[] = { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES };
-        elite->attack = isCarrier(index) ? carrierPatterns[elite->cycle % 4]
-                                         : (Attack[]){ ATTACK_FAN, ATTACK_LANCE, ATTACK_LANES }[index];
+        static const Attack wardens[] = {ATTACK_FAN, ATTACK_LANCE, ATTACK_LANES};
+        static const Attack first[] = {ATTACK_FAN, ATTACK_LANCE, ATTACK_LANES, ATTACK_PINCER};
+        static const Attack second[] = {ATTACK_RING, ATTACK_PINCER, ATTACK_LANCE, ATTACK_LANES};
+        bool secondPhase = isCarrier(index) && elite->ship.lives <= elite->maxLives / 2;
+        elite->attack = isCarrier(index) ? (secondPhase ? second : first)[elite->cycle % 4] : wardens[index];
+        elite->echo = secondPhase && elite->attack == ATTACK_RING;
         Vector2 toPlayer = Vector2Subtract(game->player.position, elite->ship.position);
         elite->aim = atan2f(toPlayer.y, toPlayer.x);
+        if (elite->attack == ATTACK_RING) elite->aim += elite->cycle % 2 ? -0.40f : 0.40f;
         elite->phase = ELITE_WARNING;
         elite->duration = elite->attack == ATTACK_LANCE ? 0.95f : 0.80f;
         elite->duration *= flightRules[game->settings.difficulty].warningTime;
@@ -135,6 +160,14 @@ void updateElite(Game *game, int index) {
             PlaySound(game->clearSound);
         } else {
             firePattern(game, index);
+            if (elite->echo) {
+                elite->echo = false;
+                elite->aim -= 0.72f;
+                elite->duration = 0.72f * flightRules[game->settings.difficulty].warningTime;
+                elite->time = elite->duration;
+                PlaySound(game->warningSound);
+                break;
+            }
             elite->phase = ELITE_RECOVERY;
             elite->time = 1.15f;
         }

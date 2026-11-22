@@ -151,6 +151,10 @@ static void renderFrame(Game *game, RenderTexture2D frame, Rectangle viewport) {
         default: break;
         }
     }
+    if (game->screenAge < 0.22f && game->currentState != STATE_PAUSE) {
+        float veil = 1.0f - game->screenAge / 0.22f;
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, veil * veil * 0.85f));
+    }
     EndMode2D();
     EndScissorMode();
 }
@@ -185,7 +189,9 @@ int main(void) {
         float scale = viewport.width / SCREEN_WIDTH;
         SetMouseOffset(-(int)viewport.x, -(int)viewport.y);
         SetMouseScale(1.0f / scale, 1.0f / scale);
+        State previous = game.currentState;
         handleGameState(&game);
+        game.screenAge = previous == game.currentState ? game.screenAge + GetFrameTime() : 0.0f;
         if (game.currentState != STATE_GAME && game.currentState != STATE_PAUSE) {
             UpdateMusicStream(game.menu->bg_song);
         }

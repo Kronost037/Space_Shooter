@@ -23,7 +23,7 @@ void drawGameOver(Game *game) {
     const char *title = game->missionCleared ? "Corridor open" : game->timedOut ? "Flight time elapsed" : "Signal lost";
     uiTitle(game, title, 351, 239, 69);
     const char *dispatch = game->missionCleared ? "The last transport made the jump." :
-        game->timedOut ? "Flight control has closed your assigned window." :
+        game->timedOut ? "Your assigned flight window has closed." :
         TextFormat("Last transmission: %s.", game->damageCause ? game->damageCause : "hull breach");
     uiLabel(game, dispatch, 357, 332, 26, UI_MUTED);
     uiLabel(game, TextFormat("%s   /   %s", game->playerName, flightRules[game->settings.difficulty].name),

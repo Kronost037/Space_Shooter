@@ -36,7 +36,7 @@ typedef enum {
     STATE_PAUSE,
 } State;
 
-typedef enum { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES } Attack;
+typedef enum { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES, ATTACK_PINCER } Attack;
 typedef enum { ELITE_IDLE, ELITE_WARNING, ELITE_FIRING, ELITE_RECOVERY } ElitePhase;
 
 typedef struct {
@@ -45,6 +45,7 @@ typedef struct {
     Vector2 velocity;
     float radius;
     float life;
+    unsigned visibleTargets;
     int owner;                 // -1 for pilot shots, otherwise the elite's index.
 } Shot;
 
@@ -75,17 +76,18 @@ typedef struct {
     float aim;
     int cycle;
     int maxLives;
+    bool echo;
     bool unlocked;
 } Elite;
 
 struct S_game {
     bool quit;
     State currentState;
+    float screenAge;
     Menu *menu;
     Font font, bodyFont;
     Settings settings;
     int settingRow;
-    unsigned int flightTicks;
     bool timedOut;
     Leaderboard leaderboard;
     bool scoreSubmitted;
@@ -113,13 +115,15 @@ struct S_game {
     char playerName[32];
     float accumulator;
     float outcomeTime;
-    float elapsedTime;
+    double elapsedTime;
     float fireCooldown;
     float spawnTimer;
     float playerHitCooldown;
     float pulseCharge;
     float pulseAnimation;
     float scoreToast;
+    float dispatchTime;
+    const char *dispatch;
     Vector2 pulseOrigin;
     int score;
     int lastAward;

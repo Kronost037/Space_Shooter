@@ -117,7 +117,7 @@ void drawSettings(const Game *game) {
         case ROW_DURATION: value = TextFormat("%d min", s->timerMinutes); break;
         default: value = TextFormat("%d%%", i == ROW_VOLUME ? s->volume : i == ROW_MUSIC ? s->music : s->effects); break;
         }
-        float width = MeasureTextEx(game->bodyFont, value, 27, 0).x;
+        float width = uiTextWidth(game, value, 27);
         uiLabel(game, value, 953 - width / 2, left.y + 10, 27, ink);
         if (enabled) {
             uiButton(game, left, "-", CheckCollisionPointRec(GetMousePosition(), left));
@@ -125,8 +125,8 @@ void drawSettings(const Game *game) {
         }
         DrawRectangle(325, (int)left.y + 67, 832, 1, (Color){52,68,81,255});
     }
-    uiLabel(game, rules->briefing, 325, 695, 22, UI_PAPER);
+    uiLabel(game, uiCompact() ? "Score multiplier" : rules->briefing, 325, 695, 22, UI_PAPER);
     uiLabel(game, TextFormat("Score awards at %d%%", rules->scorePercent), 325, 733, 20, UI_ICE);
     uiButton(game, done, "Save and return", game->settingRow == ROW_DONE || CheckCollisionPointRec(GetMousePosition(), done));
-    uiLabel(game, "Up / down to select     Left / right to change     Esc to save and return", 311, 835, 20, UI_MUTED);
+    uiLabel(game, uiCompact() ? "Up / down: select    Left / right: change    Esc: save" : "Up / down to select     Left / right to change     Esc to save and return", 311, 835, 20, UI_MUTED);
 }
