@@ -86,6 +86,7 @@ static int nearestTarget(const Game *game) {
 }
 
 static void drawObjective(const Game *game, Camera2D camera) {
+    bool compact = uiCompact();
     int index = nearestTarget(game);
     if (index < 0) return;
     const Elite *elite = &game->elites[index];

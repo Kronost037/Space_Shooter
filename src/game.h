@@ -137,7 +137,8 @@ struct S_game {
 };
 
 void initializeGame(Game *game);
-void unloadGameAssets(Game *game);
+void shutdownGame(Game *game);
+void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse);
 void runGamePhysics(Game *game);
 void drawGame(Game *game);
 void resetRun(Game *game);

@@ -42,11 +42,8 @@ jobs:
 
       - name: Exercise combat and capture the interface
         run: |
-          gcc -std=c17 -Wall -Wextra -Werror -O1 -g -fsanitize=undefined -fno-sanitize-recover=all \
-            tests/flight.c src/flight/*.c src/arena.c src/rules.c src/ui/widgets.c src/settings.c src/menu.c \
-            src/leaderboard.c src/panel.c src/game_over.c src/name_entry.c \
-            -Iraylib/include -Lraylib/lib -lraylib -lm -lX11 -o flight-check
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./flight-check
+          ./build --checks
+          sh tests/verify.sh
 
       - uses: actions/upload-artifact@v4
         with:
@@ -62,7 +59,7 @@ jobs:
           from PIL import Image
           from pathlib import Path
           import base64, io
-          for name in ('menu', 'carrier', 'settings-640', 'briefing', 'debrief', 'records'):
+          for name in ('menu', 'carrier', 'settings-640', 'settings', 'menu-wide'):
               im = Image.open(Path('screenshots') / (name + '.png')).convert('RGB')
               im.thumbnail((800, 500))
               out = io.BytesIO()

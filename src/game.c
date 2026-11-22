@@ -280,7 +280,7 @@ static void updateEffects(Game *game, float dt) {
     }
 }
 
-static void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse) {
+void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse) {
     float effectTime = (float)fmin(frameTime, 0.10);
     updateEffects(game, effectTime);
     if (game->player.lives <= 0 || game->missionCleared || game->timedOut) {
@@ -396,7 +396,7 @@ void initializeGame(Game *game) {
     leaderboardLoad(&game->leaderboard);
 }
 
-void unloadGameAssets(Game *game) {
+void shutdownGame(Game *game) {
     UnloadTexture(game->sky);
     UnloadTexture(game->pilotTexture);
     UnloadTexture(game->scoutTexture);
@@ -409,4 +409,9 @@ void unloadGameAssets(Game *game) {
     UnloadSound(game->pulseSound);
     UnloadFont(game->bodyFont);
     UnloadFont(game->font);
+    UnloadMusicStream(game->menu->bg_song);
+    UnloadSound(game->menu->hover_sfx);
+    UnloadSound(game->menu->click_sfx);
+    free(game->menu);
+    leaderboardShutdown(&game->leaderboard);
 }

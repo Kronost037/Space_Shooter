@@ -69,7 +69,7 @@ static void fetch_raylib(void)
         "mkdir build && "
         "cd build && "
         "cmake "
-        "-DBUILD_SHARED_LIBS=OFF "
+        "-DBUILD_SHARED_LIBS=OFF -DBUILD_EXAMPLES=OFF "
         "-DCMAKE_BUILD_TYPE=Release "
         "-DCMAKE_INSTALL_PREFIX=../../raylib "
         ".. && "
@@ -95,7 +95,7 @@ typedef enum {
     DEBUG_ON
 } Debug_mode;
 
-static int build_game(Debug_mode debug)
+static int build_game(Debug_mode debug, int checks)
 {
     char cmd[CMD_SIZE];
 
@@ -106,16 +106,19 @@ static int build_game(Debug_mode debug)
             "-Wall -Wextra "
             "%s "
             "src/rules.c src/ui/widgets.c src/settings.c src/arena.c src/menu.c src/leaderboard.c src/panel.c src/game_over.c src/name_entry.c "
-            "src/flight/geometry.c src/flight/encounter.c src/flight/render.c src/game.c src/core.c "
+            "src/flight/geometry.c src/flight/encounter.c src/flight/render.c src/game.c src/ui/display.c "
+            "%s "
             "-Iraylib/include "
             "-Lraylib/lib "
             "-lraylib "
             "-lm -lX11 "
-            "-o \"Space Shooter\"",
+            "-o \"%s\"",
             debug ? "-O0 -g3" : "-O2",
             debug ? "-Wpedantic -Wconversion -Wshadow "
                     "-Wformat=2 -fsanitize=address,undefined"
-                    : "");
+                    : (checks ? "-Werror -fsanitize=undefined -fno-sanitize-recover=all" : ""),
+            checks ? "tests/flight.c" : "src/core.c",
+            checks ? "flight-check" : "Space Shooter");
 
     printf("Running:\n%s\n\n", cmd);
 
@@ -134,6 +137,7 @@ static void print_help(void)
     puts("HELP MENU");
     puts("");
     puts("./build                    Release build");
+    puts("./build --checks            Build the flight verification executable");
     puts("./build --debug            Debug build");
     puts("./build --download raylib  Download Raylib locally");
     puts("./build --help             Show this help");
@@ -142,15 +146,17 @@ static void print_help(void)
 int main(int argc, char **argv)
 {
     if (argc == 1) {
-        return build_game(DEBUG_OFF);
+        return build_game(DEBUG_OFF, 0);
     }
 
+    if (strcmp(argv[1], "--checks") == 0) return build_game(DEBUG_OFF, 1);
+
     if (strcmp(argv[1], "--release") == 0) {
-        return build_game(DEBUG_OFF);
+        return build_game(DEBUG_OFF, 0);
     }
 
     if (strcmp(argv[1], "--debug") == 0) {
-        return build_game(DEBUG_ON);
+        return build_game(DEBUG_ON, 0);
     }
 
     if (strcmp(argv[1], "--download") == 0) {
