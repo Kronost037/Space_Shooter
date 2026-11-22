@@ -43,7 +43,7 @@ jobs:
       - name: Exercise combat and capture the interface
         run: |
           gcc -std=c17 -Wall -Wextra -Werror -O1 -g -fsanitize=undefined -fno-sanitize-recover=all \
-            tests/flight.c src/arena.c src/rules.c src/ui/widgets.c src/settings.c src/menu.c \
+            tests/flight.c src/flight/*.c src/arena.c src/rules.c src/ui/widgets.c src/settings.c src/menu.c \
             src/leaderboard.c src/panel.c src/game_over.c src/name_entry.c \
             -Iraylib/include -Lraylib/lib -lraylib -lm -lX11 -o flight-check
           xvfb-run -a -s "-screen 0 1920x1080x24" ./flight-check
@@ -54,3 +54,20 @@ jobs:
           path: screenshots/*.png
           compression-level: 0
           if-no-files-found: error
+
+      - name: Inspect rendered thumbnails
+        run: |
+          sudo apt-get install -y python3-pil > /dev/null
+          /usr/bin/python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          import base64, io
+          for name in ('menu', 'carrier', 'settings-640', 'briefing', 'debrief', 'records'):
+              im = Image.open(Path('screenshots') / (name + '.png')).convert('RGB')
+              im.thumbnail((800, 500))
+              out = io.BytesIO()
+              im.save(out, format='JPEG', quality=76)
+              data = base64.b64encode(out.getvalue()).decode()
+              for i in range(0, len(data), 2000):
+                  print(f'PREVIEW/{name}/{i} {data[i:i+2000]}')
+          PY

@@ -106,7 +106,7 @@ static int build_game(Debug_mode debug)
             "-Wall -Wextra "
             "%s "
             "src/rules.c src/ui/widgets.c src/settings.c src/arena.c src/menu.c src/leaderboard.c src/panel.c src/game_over.c src/name_entry.c "
-            "src/game.c src/core.c "
+            "src/flight/geometry.c src/flight/encounter.c src/flight/render.c src/game.c src/core.c "
             "-Iraylib/include "
             "-Lraylib/lib "
             "-lraylib "

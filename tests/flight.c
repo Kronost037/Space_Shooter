@@ -23,12 +23,12 @@ static void testFlight(Game *game) {
         Elite *warden = &game->elites[0];
         Vector2 edge = GetScreenToWorld2D((Vector2){10,16}, game->camera);
         placeElite(game, 0, edge);
-        assert(!eliteEngaged(game, 0));
+        assert(!eliteCanAttack(game, 0));
         contact(game, -1, edge);
         assert(warden->ship.lives == flightRules[d].wardenHull - 1);
         Vector2 far = GetScreenToWorld2D((Vector2){1450,520}, game->camera);
         placeElite(game, 0, far);
-        assert(eliteEngaged(game, 0));
+        assert(eliteCanAttack(game, 0));
         contact(game, -1, far);
         assert(warden->ship.lives == warden->maxLives - 2);
         Elite *carrier = &game->elites[MAX_ELITES - 1];
