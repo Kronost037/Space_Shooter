@@ -96,7 +96,7 @@ struct S_game {
     State currentState;
     float screenAge;
     Menu *menu;
-    Font font, bodyFont;
+    Font bodyFont;
     Settings settings;
     int settingRow;
     bool timedOut;

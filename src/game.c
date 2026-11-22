@@ -401,11 +401,8 @@ void initializeGame(Game *game) {
     game->clearSound = LoadSound("src/Assets/Siege/impact.wav");
     game->pulseSound = LoadSound("src/Assets/Siege/pulse.wav");
 
-    game->font = LoadFontEx("src/Assets/Siege/Rajdhani-Bold.ttf", 96, NULL, 0);
-    game->bodyFont = LoadFontEx("src/Assets/Siege/AtkinsonHyperlegible-Regular.ttf", 32, NULL, 0);
-    GenTextureMipmaps(&game->font.texture);
+    game->bodyFont = LoadFontEx("src/Assets/Siege/AtkinsonHyperlegible-Regular.ttf", 72, NULL, 0);
     GenTextureMipmaps(&game->bodyFont.texture);
-    SetTextureFilter(game->font.texture, TEXTURE_FILTER_TRILINEAR);
     SetTextureFilter(game->bodyFont.texture, TEXTURE_FILTER_TRILINEAR);
     game->menu = malloc(sizeof *game->menu);
     initializeMenu(game->menu);
@@ -425,7 +422,6 @@ void shutdownGame(Game *game) {
     UnloadSound(game->clearSound);
     UnloadSound(game->pulseSound);
     UnloadFont(game->bodyFont);
-    UnloadFont(game->font);
     UnloadMusicStream(game->menu->bg_song);
     UnloadSound(game->menu->hover_sfx);
     UnloadSound(game->menu->click_sfx);

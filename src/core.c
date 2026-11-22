@@ -46,10 +46,10 @@ static void handleGameState(Game *game) {
         break;
     case STATE_NAME_ENTRY:
         updateNameEntry(game);
-        if (IsKeyPressed(KEY_ESCAPE)) {
+        if (nameEntryBack()) {
             PlaySound(game->menu->click_sfx);
             game->currentState = STATE_MENU;
-        } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+        } else if (nameEntryLaunch()) {
             PlaySound(game->menu->click_sfx);
             if (game->playerName[0] == '\0') strcpy(game->playerName, "PLAYER");
             game->currentState = STATE_GAME;

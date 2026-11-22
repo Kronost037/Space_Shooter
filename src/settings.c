@@ -102,7 +102,7 @@ void drawSettings(const Game *game) {
     const FlightRules *rules = &flightRules[s->difficulty];
     uiBackdrop(game, (float)GetTime());
     uiSurface((Rectangle){264, 57, 972, 751});
-    uiTitle(game, "Flight settings", 325, 69, 60);
+    uiTitle(game, "Settings", 325, 69, 60);
     for (int i = 0; i < ROW_DONE; ++i) {
         Rectangle left = control(i, false), right = control(i, true);
         bool enabled = i != ROW_DURATION || s->timerEnabled;
@@ -125,8 +125,7 @@ void drawSettings(const Game *game) {
         }
         DrawRectangle(325, (int)left.y + 67, 832, 1, (Color){52,68,81,255});
     }
-    uiLabel(game, uiCompact() ? rules->name : rules->briefing, 325, 695, 22, UI_PAPER);
-    uiLabel(game, TextFormat("Score awards at %d%%", rules->scorePercent), 325, 733, 20, UI_ICE);
-    uiButton(game, done, "Save and return", game->settingRow == ROW_DONE || CheckCollisionPointRec(GetMousePosition(), done));
-    uiLabel(game, uiCompact() ? "Up / down: select    Left / right: change    Esc: save" : "Up / down to select     Left / right to change     Esc to save and return", 311, 835, 20, UI_MUTED);
+    uiLabel(game, TextFormat("%d%% scoring", rules->scorePercent), 325, 733, 20, UI_ICE);
+    uiButton(game, done, "Done", game->settingRow == ROW_DONE || CheckCollisionPointRec(GetMousePosition(), done));
+    uiLabel(game, "Arrows to adjust  /  Esc to save", 311, 835, 20, UI_MUTED);
 }

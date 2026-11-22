@@ -182,8 +182,7 @@ void drawLeaderboard(const Game *game) {
     const Leaderboard *lb = &game->leaderboard;
     uiBackdrop(game, (float)GetTime());
     uiSurface((Rectangle){310,75,880,744});
-    uiLabel(game, "ASTER CONVOY   /   PILOT ARCHIVE", 372, 119, 20, UI_ICE);
-    uiTitle(game, "Flight records", 368, 152, 60);
+    uiTitle(game, "Records", 368, 152, 60);
     uiLabel(game, "Rank", 372, 250, 22, UI_MUTED);
     uiLabel(game, "Callsign", 514, 250, 22, UI_MUTED);
     uiLabel(game, "Score", 990, 250, 22, UI_MUTED);
@@ -196,7 +195,7 @@ void drawLeaderboard(const Game *game) {
         uiLabel(game, lb->entries[i].name, 514, y, 24, UI_PAPER);
         uiLabel(game, TextFormat("%d", lb->entries[i].score), 990, y, 24, UI_PAPER);
     }
-    if (!lb->count) uiLabel(game, "Complete a scoring flight to enter the archive.", 372, 333, 25, UI_PAPER);
+    if (!lb->count) uiLabel(game, "No scores yet", 372, 333, 25, UI_PAPER);
     uiButton(game, back, "Main menu", CheckCollisionPointRec(GetMousePosition(), back));
     if (lb->page) uiButton(game, previous, "Previous", CheckCollisionPointRec(GetMousePosition(), previous));
     if ((lb->page + 1) * PAGE_SIZE < lb->count) uiButton(game, next, "Next", CheckCollisionPointRec(GetMousePosition(), next));
