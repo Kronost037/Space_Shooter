@@ -57,7 +57,17 @@ void drawSectorLandmarks(const Game *game, Camera2D camera) {
         Vector2 screen = GetWorldToScreen2D(center, camera);
         if (screen.x < -350 || screen.x > SCREEN_WIDTH + 350 ||
             screen.y < -350 || screen.y > SCREEN_HEIGHT + 350) continue;
-        Color steel = {48,70,94,170};
+        bool released = game->elites[site].ship.lives == 0;
+        Color steel = released ? (Color){67,128,136,150} : (Color){48,70,94,170};
+        if (released && site < MAX_ELITES - 1) {
+            // Navigation lights on the jump lane lead civilian traffic past this relay.
+            float sweep = fmodf((float)game->elapsedTime * 0.3f, 1.0f);
+            for (int lamp = 0; lamp < 8; ++lamp) {
+                float phase = fmodf(sweep + lamp / 8.0f, 1.0f);
+                Vector2 p = {center.x + lamp * 44.0f - 152.0f, center.y + 105.0f - lamp * 28.0f};
+                DrawCircleV(p, 3, Fade((Color){133,211,206,255}, 0.24f + 0.65f * phase));
+            }
+        }
         if (site == 0) {
             for (int arc = 0; arc < 5; ++arc)
                 DrawRing(center, 208, 220, arc * 72.0f, arc * 72.0f + 54, 30, steel);

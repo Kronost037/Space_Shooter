@@ -1,27 +1,10 @@
-#include "arena.h"
+#include "flight/flight.h"
+#include "flight/mission.h"
 #include "game.h"
 #include "menu.h"
-#include "panel.h"
 
 #include <math.h>
 #include <string.h>
-
-#define STEP (1.0f / 120.0f)
-#define PILOT_RADIUS 17.0f
-#define SCOUT_RADIUS 23.0f
-#define WARDEN_RADIUS 56.0f
-#define CARRIER_RADIUS 73.0f
-#define LANCE_WIDTH 17.0f
-#define LANCE_REACH 780.0f
-#define ENGAGE_RANGE 660.0f
-#define CORAL ((Color){255, 86, 111, 255})
-#define CYAN ((Color){96, 222, 255, 255})
-#define AMBER ((Color){255, 194, 98, 255})
-#define WARDEN_ACCENT ((Color){207, 144, 255, 255})
-
-static Vector2 direction(float angle) {
-    return (Vector2){ cosf(angle), sinf(angle) };
-}
 
 static Vector2 keyboardAxis(int left, int right, int up, int down) {
     return Vector2Normalize((Vector2){
@@ -30,46 +13,7 @@ static Vector2 keyboardAxis(int left, int right, int up, int down) {
     });
 }
 
-static float distanceToSegment(Vector2 point, Vector2 start, Vector2 end) {
-    Vector2 span = Vector2Subtract(end, start);
-    float lengthSquared = Vector2LengthSqr(span);
-    if (lengthSquared < 0.0001f) return Vector2Distance(point, start);
-    float t = Clamp(Vector2DotProduct(Vector2Subtract(point, start), span) / lengthSquared,
-                    0.0f, 1.0f);
-    return Vector2Distance(point, Vector2Add(start, Vector2Scale(span, t)));
-}
-
-static bool onScreen(Camera2D camera, Vector2 point, float margin) {
-    Vector2 screen = GetWorldToScreen2D(point, camera);
-    return screen.x >= margin && screen.x <= SCREEN_WIDTH - margin &&
-           screen.y >= margin && screen.y <= SCREEN_HEIGHT - margin;
-}
-
-static bool isCarrier(int index) {
-    return index == MAX_ELITES - 1;
-}
-
-static float eliteRadius(int index) {
-    return isCarrier(index) ? CARRIER_RADIUS : WARDEN_RADIUS;
-}
-
-static bool eliteEngaged(const Game *game, int index) {
-    const Elite *elite = &game->elites[index];
-    if (!elite->unlocked || elite->ship.lives <= 0 ||
-        Vector2Distance(game->player.position, elite->ship.position) > ENGAGE_RANGE) return false;
-
-    float radius = eliteRadius(index) + 12.0f;
-    Vector2 screen = GetWorldToScreen2D(elite->ship.position, game->camera);
-    if (screen.x < radius || screen.x > SCREEN_WIDTH - radius ||
-        screen.y < radius || screen.y > SCREEN_HEIGHT - radius) return false;
-
-    // Reserve both HUD corners regardless of the local radar preference.
-    bool leftCorner = screen.x < 250.0f + radius && screen.y < 204.0f + radius;
-    bool rightCorner = screen.x > SCREEN_WIDTH - 225.0f - radius && screen.y < 203.0f + radius;
-    return !leftCorner && !rightCorner;
-}
-
-static void burst(Game *game, Vector2 position, Color color, int count) {
+void burst(Game *game, Vector2 position, Color color, int count) {
     // Cosmetic variation is independent of Raylib's gameplay spawn RNG.
     for (int i = 0; i < MAX_PARTICLES && count > 0; ++i) {
         Particle *particle = &game->particles[i];
@@ -85,13 +29,14 @@ static void burst(Game *game, Vector2 position, Color color, int count) {
     }
 }
 
-static void award(Game *game, int points) {
+void award(Game *game, int points) {
+    points = (points * flightRules[game->settings.difficulty].scorePercent + 50) / 100;
     game->score += points;
     game->lastAward = points;
     game->scoreToast = 0.85f;
 }
 
-static void damagePlayer(Game *game, const char *cause) {
+void damagePlayer(Game *game, const char *cause) {
     if (game->playerHitCooldown > 0.0f || game->player.lives <= 0) return;
     game->damageCause = cause;
     --game->player.lives;
@@ -112,155 +57,25 @@ static void destroyScout(Game *game, Ship *scout) {
     burst(game, scout->position, CORAL, 10);
 }
 
-static void clearEliteShots(Game *game, int index) {
-    for (int i = 0; i < MAX_SHOTS; ++i) {
-        if (game->shots[i].owner == index) game->shots[i].life = 0.0f;
-    }
-}
-
-static void damageElite(Game *game, int index, int amount) {
-    Elite *elite = &game->elites[index];
-    int previousLives = elite->ship.lives;
-    elite->ship.lives -= amount;
-    elite->ship.hitFlash = 0.11f;
-    if (isCarrier(index) && previousLives > CARRIER_HP / 2 && elite->ship.lives <= CARRIER_HP / 2) {
-        elite->ship.lives = CARRIER_HP / 2;
-        elite->phase = ELITE_IDLE;
-        elite->cycle = 2;
-        elite->time = 0.45f;
-        clearEliteShots(game, index);
-        burst(game, elite->ship.position, AMBER, 24);
-        return;
-    }
-    if (elite->ship.lives > 0) return;
-
-    game->payoutPosition = elite->ship.position;
-    elite->ship.lives = 0;
-    clearEliteShots(game, index);
-    burst(game, elite->ship.position, isCarrier(index) ? AMBER : WARDEN_ACCENT, 42);
-    PlaySound(game->clearSound);
-    if (isCarrier(index)) {
-        game->clearBonus = (int)Clamp(3.0f * (120.0f - game->elapsedTime), 0.0f, 250.0f);
-        award(game, 500 + game->clearBonus);
-        game->missionCleared = true;
-        return;
-    }
-
-    award(game, 100 + 50 * game->wardensCleared);
-    ++game->wardensCleared;
-    game->scoutRewards = 0;
-    if (game->player.lives < MAX_LIVES) ++game->player.lives;
-    game->pulseCharge = fminf(PULSE_RECHARGE, game->pulseCharge + 3.0f);
-    if (game->wardensCleared == MAX_ELITES - 1) game->elites[MAX_ELITES - 1].unlocked = true;
-}
-
-static bool addShot(Game *game, int owner, Vector2 position, Vector2 heading,
+bool addShot(Game *game, int owner, Vector2 position, Vector2 heading,
                     float speed, float radius, float life) {
     for (int i = 0; i < MAX_SHOTS; ++i) {
         if (game->shots[i].life > 0.0f) continue;
+        unsigned targets = 0;
+        if (owner < 0) {
+            for (int e = 0; e < MAX_ELITES; ++e) {
+                if (onScreen(game->camera, game->elites[e].ship.position, -eliteRadius(e) * 1.2f))
+                    targets |= 1u << e;
+            }
+        }
         game->shots[i] = (Shot){
+            .visibleTargets = targets,
             .position = position, .previous = position, .velocity = Vector2Scale(heading, speed),
             .radius = radius, .life = life, .owner = owner
         };
         return true;
     }
     return false;
-}
-
-static int patternCount(const Elite *elite, int index) {
-    if (elite->attack == ATTACK_LANES) return 7;
-    if (elite->attack == ATTACK_RING) return 18;
-    return isCarrier(index) ? (elite->ship.lives <= CARRIER_HP / 2 ? 9 : 7) : 5;
-}
-
-static float patternAngle(const Elite *elite, int ray, int count) {
-    if (elite->attack == ATTACK_RING) {
-        const float gap = 0.60f;
-        return elite->aim + gap + (2.0f * PI - 2.0f * gap) * (float)ray / (float)(count - 1);
-    }
-    if (elite->attack == ATTACK_LANES) return elite->aim;
-    return elite->aim + ((float)ray - (float)(count - 1) * 0.5f) * 0.15f;
-}
-
-static Vector2 muzzleOffset(const Elite *elite, int index, int ray, int count, Vector2 heading) {
-    Vector2 offset = Vector2Scale(heading, eliteRadius(index));
-    if (elite->attack == ATTACK_LANES) {
-        float lane = (float)ray - (float)(count - 1) * 0.5f + (elite->cycle % 2 ? 0.5f : 0.0f);
-        offset = Vector2Add(offset, Vector2Scale((Vector2){-heading.y, heading.x}, lane * 56.0f));
-    }
-    return offset;
-}
-
-static void firePattern(Game *game, int index) {
-    Elite *elite = &game->elites[index];
-    int count = patternCount(elite, index);
-    for (int i = 0; i < count; ++i) {
-        Vector2 heading = direction(patternAngle(elite, i, count));
-        Vector2 muzzle = Vector2Add(elite->ship.position, muzzleOffset(elite, index, i, count, heading));
-        addShot(game, index, muzzle, heading, isCarrier(index) ? 565.0f : 460.0f,
-                elite->attack == ATTACK_RING ? 6.0f : 5.0f, 2.0f);
-    }
-    PlaySound(game->clearSound);
-}
-
-static void updateElite(Game *game, int index) {
-    Elite *elite = &game->elites[index];
-    if (!elite->unlocked || elite->ship.lives <= 0) return;
-    elite->ship.hitFlash = fmaxf(0.0f, elite->ship.hitFlash - STEP);
-
-    if (!eliteEngaged(game, index)) {
-        elite->phase = ELITE_IDLE;
-        elite->time = 0.55f;
-        return;
-    }
-
-    if (elite->phase == ELITE_WARNING && elite->attack == ATTACK_LANCE && elite->time > 0.48f) {
-        Vector2 target = Vector2Subtract(game->player.position, elite->ship.position);
-        elite->aim = atan2f(target.y, target.x);
-    }
-    elite->time -= STEP;
-    if (elite->phase == ELITE_FIRING) {
-        Vector2 endpoint = Vector2Add(elite->ship.position,
-                                       Vector2Scale(direction(elite->aim), LANCE_REACH));
-        if (distanceToSegment(game->player.position, elite->ship.position, endpoint) <=
-            PILOT_RADIUS + LANCE_WIDTH * 0.5f) damagePlayer(game, "Lance strike");
-    }
-    if (elite->time > 0.0f) return;
-
-    switch (elite->phase) {
-    case ELITE_IDLE: {
-        static const Attack carrierPatterns[] = { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING };
-        elite->attack = isCarrier(index) ? carrierPatterns[elite->cycle % 3]
-                                         : (Attack[]){ ATTACK_FAN, ATTACK_LANCE, ATTACK_LANES }[index];
-        Vector2 toPlayer = Vector2Subtract(game->player.position, elite->ship.position);
-        elite->aim = atan2f(toPlayer.y, toPlayer.x);
-        elite->phase = ELITE_WARNING;
-        elite->duration = elite->attack == ATTACK_LANCE ? 0.95f : 0.80f;
-        elite->time = elite->duration;
-        PlaySound(game->warningSound);
-        break;
-    }
-    case ELITE_WARNING:
-        if (elite->attack == ATTACK_LANCE) {
-            elite->phase = ELITE_FIRING;
-            elite->time = 0.30f;
-            PlaySound(game->clearSound);
-        } else {
-            firePattern(game, index);
-            elite->phase = ELITE_RECOVERY;
-            elite->time = 1.15f;
-        }
-        break;
-    case ELITE_FIRING:
-        elite->phase = ELITE_RECOVERY;
-        elite->time = 1.35f;
-        break;
-    case ELITE_RECOVERY:
-        ++elite->cycle;
-        elite->phase = ELITE_IDLE;
-        elite->time = isCarrier(index) && elite->ship.lives <= CARRIER_HP / 2 ? 0.22f : 0.55f;
-        break;
-    }
 }
 
 static void activatePulse(Game *game) {
@@ -280,7 +95,7 @@ static void activatePulse(Game *game) {
         }
     }
     for (int i = 0; i < MAX_ELITES; ++i) {
-        if (eliteEngaged(game, i) &&
+        if (game->elites[i].unlocked && game->elites[i].ship.lives > 0 &&
             Vector2Distance(game->elites[i].ship.position, game->pulseOrigin) <= PULSE_RADIUS) {
             damageElite(game, i, 3);
         }
@@ -302,17 +117,26 @@ static void updateCamera(Game *game, Vector2 move) {
     game->camera.target = Vector2Lerp(game->camera.target, target, 1.0f - expf(-9.0f * STEP));
 }
 
+static int spawnRange(Game *game, int lo, int hi) {
+    uint32_t x = game->spawnSeed;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    game->spawnSeed = x;
+    return lo + (int)(x % (uint32_t)(hi - lo + 1));
+}
+
 static void spawnScout(Game *game) {
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         if (game->scouts[i].lives > 0) continue;
         Vector2 position = {0};
         for (int attempt = 0; attempt < 20; ++attempt) {
-            float angle = (float)GetRandomValue(0, 359) * DEG2RAD;
+            float angle = (float)spawnRange(game, 0, 359) * DEG2RAD;
             position = Vector2Add(game->player.position, Vector2Scale(direction(angle), 870.0f));
             if (position.x < 36.0f || position.x > WORLD_WIDTH - 36.0f ||
                 position.y < 36.0f || position.y > WORLD_HEIGHT - 36.0f ||
                 onScreen(game->camera, position, -36.0f)) continue;
-            float speed = (float)GetRandomValue(260, 325);
+            float speed = (float)spawnRange(game, 260, 325);
             game->scouts[i] = (Ship){ .position = position, .previous = position,
                                      .speed = speed, .lives = 1 };
             return;
@@ -322,10 +146,22 @@ static void spawnScout(Game *game) {
 }
 
 static void updateScouts(Game *game) {
+    const FlightRules *rules = &flightRules[game->settings.difficulty];
+    Elite *carrier = &game->elites[MAX_ELITES - 1];
+    bool duel = carrier->unlocked && carrier->ship.lives > 0 &&
+                onScreen(game->camera, carrier->ship.position, -160.0f);
+    int escorts = 0;
+    for (int i = 0; duel && i < MAX_ENEMIES; ++i) {
+        Ship *scout = &game->scouts[i];
+        if (!scout->lives) continue;
+        if (escorts++ == 0) continue;
+        burst(game, scout->position, CYAN, 5);
+        scout->lives = 0;
+    }
     game->spawnTimer -= STEP;
     if (game->spawnTimer <= 0.0f) {
-        spawnScout(game);
-        game->spawnTimer = 2.1f - 0.32f * (float)game->wardensCleared;
+        if (!duel || escorts == 0) spawnScout(game);
+        game->spawnTimer = duel ? 12.0f : (2.1f - 0.32f * game->wardensCleared) * rules->spawnInterval;
     }
 
     for (int i = 0; i < MAX_ENEMIES; ++i) {
@@ -344,7 +180,7 @@ static void updateScouts(Game *game) {
         Vector2 desired = Vector2Normalize(Vector2Add(toward, Vector2Scale(separation, 0.95f)));
         scout->heading = Vector2Normalize(Vector2Lerp(scout->heading, desired, 1.0f - expf(-7.0f * STEP)));
         scout->previous = scout->position;
-        float speed = scout->speed + 47.0f * (float)game->wardensCleared;
+        float speed = (scout->speed + 47.0f * game->wardensCleared) * rules->scoutSpeed * (duel ? 0.38f : 1.0f);
         scout->position = Vector2Add(scout->position, Vector2Scale(scout->heading, speed * STEP));
         if (Vector2Distance(scout->position, game->player.position) <= SCOUT_RADIUS + PILOT_RADIUS) {
             damagePlayer(game, "Scout impact");
@@ -392,21 +228,20 @@ static void updateShots(Game *game) {
 
         for (int elite = 0; elite < MAX_ELITES; ++elite) {
             Elite *target = &game->elites[elite];
-            if (!eliteEngaged(game, elite) || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
+            if (!target->unlocked || target->ship.lives <= 0 || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
+            if (!(shot->visibleTargets & (1u << elite)) &&
+                !onScreen(game->camera, target->ship.position, -eliteRadius(elite) * 1.2f)) continue;
             shot->life = 0.0f;
-            if (isCarrier(elite) && target->phase != ELITE_RECOVERY) {
-                burst(game, shot->position, AMBER, 3);
-            } else {
-                damageElite(game, elite, target->phase == ELITE_RECOVERY ? 2 : 1);
-                burst(game, shot->position, WARDEN_ACCENT, 4);
-            }
+            bool exposed = target->phase == ELITE_RECOVERY;
+            damageElite(game, elite, exposed ? 2 : 1);
+            burst(game, shot->position, exposed ? CYAN : AMBER, 4);
             break;
         }
     }
 }
 
 static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
-    game->elapsedTime += STEP;
+    game->dispatchTime = fmaxf(0.0f, game->dispatchTime - STEP);
     game->scoreToast = fmaxf(0.0f, game->scoreToast - STEP);
     game->pulseAnimation = fmaxf(0.0f, game->pulseAnimation - STEP);
     game->playerHitCooldown = fmaxf(0.0f, game->playerHitCooldown - STEP);
@@ -432,7 +267,7 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
     game->fireCooldown -= STEP;
     if (game->fireCooldown <= 0.0f && Vector2LengthSqr(aim) > 0.0f) {
         Vector2 muzzle = Vector2Add(player->position, Vector2Scale(aim, 25.0f));
-        if (addShot(game, -1, muzzle, aim, 1100.0f, 4.0f, 0.87f)) {
+        if (addShot(game, -1, muzzle, aim, 1100.0f, 4.0f, 1.75f)) {
             game->fireCooldown = 0.16f;
             PlaySound(game->laserSound);
         }
@@ -443,6 +278,7 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
         updateScouts(game);
         for (int i = 0; i < MAX_ELITES && player->lives > 0; ++i) updateElite(game, i);
         if (player->lives > 0) updateShots(game);
+        if (player->lives > 0 && !game->missionCleared) advanceMission(game, STEP);
     }
 }
 
@@ -455,31 +291,47 @@ static void updateEffects(Game *game, float dt) {
     }
 }
 
-void runGamePhysics(Game *game) {
-    float dt = fminf(GetFrameTime(), 0.10f);
-    updateEffects(game, dt);
-    if (game->player.lives <= 0 || game->missionCleared) {
-        game->outcomeTime += dt;
+void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse) {
+    float effectTime = (float)fmin(frameTime, 0.10);
+    updateEffects(game, effectTime);
+    if (game->player.lives <= 0 || game->missionCleared || game->timedOut) {
+        game->outcomeTime += effectTime;
         return;
     }
 
-    Vector2 move = keyboardAxis(KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN);
-    Vector2 aim = keyboardAxis(KEY_A, KEY_D, KEY_W, KEY_S);
-    if (IsKeyPressed(KEY_SPACE)) game->pulseQueued = true;
-    game->accumulator += dt;
+    double limit = game->settings.timerMinutes * 60.0;
+    double activeTime = game->settings.timerEnabled ? fmin(frameTime, limit - game->elapsedTime) : frameTime;
+    game->elapsedTime += activeTime;
+    // Catch-up work is bounded, but a slow frame still counts against the flight clock.
+    game->accumulator += (float)fmin(activeTime, 0.10);
+    game->pulseQueued |= pulse;
     while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared) {
         step(game, move, aim, game->pulseQueued);
         game->pulseQueued = false;
         game->accumulator -= STEP;
     }
+    game->timedOut = game->settings.timerEnabled && game->elapsedTime >= limit &&
+                     game->player.lives > 0 && !game->missionCleared;
+}
+
+void runGamePhysics(Game *game) {
+    Vector2 move = keyboardAxis(KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN);
+    Vector2 aim = keyboardAxis(KEY_A, KEY_D, KEY_W, KEY_S);
+    advanceFlight(game, GetFrameTime(), move, aim, IsKeyPressed(KEY_SPACE));
 }
 
 void resetRun(Game *game) {
+    resetRunSeeded(game, (uint32_t)GetRandomValue(1, 2147483646));
+}
+
+void resetRunSeeded(Game *game, uint32_t seed) {
+    game->spawnSeed = seed ? seed : 1u;
     memset(game->scouts, 0, sizeof(game->scouts));
     memset(game->elites, 0, sizeof(game->elites));
     memset(game->shots, 0, sizeof(game->shots));
     memset(game->particles, 0, sizeof(game->particles));
     Vector2 start = { WORLD_WIDTH * 0.50f, WORLD_HEIGHT * 0.50f };
+    startMission(game, start);
     game->player = (Ship){ .position = start, .previous = start, .heading = {0, -1},
                            .speed = 505.0f, .lives = MAX_LIVES };
     static const Vector2 sites[MAX_ELITES] = {
@@ -487,10 +339,13 @@ void resetRun(Game *game) {
     };
     for (int i = 0; i < MAX_ELITES; ++i) {
         Vector2 position = { sites[i].x * WORLD_SECTOR_WIDTH, sites[i].y * WORLD_SECTOR_HEIGHT };
+        const FlightRules *rules = &flightRules[game->settings.difficulty];
+        int hull = isCarrier(i) ? rules->carrierHull : rules->wardenHull;
         game->elites[i] = (Elite){
+            .maxLives = hull,
             .ship = { .position = position, .previous = position,
-                      .lives = isCarrier(i) ? CARRIER_HP : WARDEN_HP },
-            .unlocked = !isCarrier(i), .time = 0.55f
+                      .lives = hull },
+            .time = 0.55f
         };
     }
 
@@ -503,6 +358,9 @@ void resetRun(Game *game) {
     game->accumulator = 0.0f;
     game->outcomeTime = 0.0f;
     game->elapsedTime = 0.0f;
+    game->dispatchTime = 0;
+    game->dispatch = NULL;
+    game->timedOut = false;
     game->spawnTimer = 0.9f;
     game->fireCooldown = 0.0f;
     game->playerHitCooldown = 0.0f;
@@ -531,7 +389,7 @@ static Texture2D loadShip(const char *path) {
 }
 
 void initializeGame(Game *game) {
-    *game = (Game){ .showRadar = true };
+    *game = (Game){ .showRadar = true, .settings = DEFAULT_SETTINGS };
     game->sky = loadShip("src/Assets/Siege/deep-field.png");
     game->pilotTexture = loadShip("src/Assets/Siege/pilot.png");
     game->scoutTexture = loadShip("src/Assets/Siege/scout.png");
@@ -542,21 +400,20 @@ void initializeGame(Game *game) {
     game->damageSound = LoadSound("src/Assets/Siege/damage.wav");
     game->clearSound = LoadSound("src/Assets/Siege/impact.wav");
     game->pulseSound = LoadSound("src/Assets/Siege/pulse.wav");
-    SetSoundVolume(game->laserSound, 0.32f);
-    SetSoundVolume(game->warningSound, 0.44f);
-    SetSoundVolume(game->damageSound, 0.47f);
-    SetSoundVolume(game->clearSound, 0.30f);
-    SetSoundVolume(game->pulseSound, 0.40f);
 
-    game->font = LoadFontEx("src/Assets/Siege/Rajdhani-Bold.ttf", 64, NULL, 0);
-    SetTextureFilter(game->font.texture, TEXTURE_FILTER_BILINEAR);
+    game->font = LoadFontEx("src/Assets/Siege/Rajdhani-Bold.ttf", 96, NULL, 0);
+    game->bodyFont = LoadFontEx("src/Assets/Siege/AtkinsonHyperlegible-Regular.ttf", 32, NULL, 0);
+    GenTextureMipmaps(&game->font.texture);
+    GenTextureMipmaps(&game->bodyFont.texture);
+    SetTextureFilter(game->font.texture, TEXTURE_FILTER_TRILINEAR);
+    SetTextureFilter(game->bodyFont.texture, TEXTURE_FILTER_TRILINEAR);
     game->menu = malloc(sizeof *game->menu);
     initializeMenu(game->menu);
     leaderboardInit(&game->leaderboard);
     leaderboardLoad(&game->leaderboard);
 }
 
-void unloadGameAssets(Game *game) {
+void shutdownGame(Game *game) {
     UnloadTexture(game->sky);
     UnloadTexture(game->pilotTexture);
     UnloadTexture(game->scoutTexture);
@@ -567,131 +424,11 @@ void unloadGameAssets(Game *game) {
     UnloadSound(game->damageSound);
     UnloadSound(game->clearSound);
     UnloadSound(game->pulseSound);
+    UnloadFont(game->bodyFont);
     UnloadFont(game->font);
-}
-
-static void drawShip(Texture2D texture, Vector2 position, Vector2 heading, float size,
-                     Color tint, Color fallback) {
-    float angle = atan2f(heading.y, heading.x) * RAD2DEG + 90.0f;
-    if (!IsTextureValid(texture)) {
-        DrawCircleV(position, size * 0.31f, fallback);
-        DrawLineEx(position, Vector2Add(position, Vector2Scale(heading, size * 0.50f)), 4.0f, tint);
-        return;
-    }
-    float width = (float)texture.width;
-    float height = (float)texture.height;
-    float scale = size / fmaxf(width, height);
-    Vector2 origin = { width * scale * 0.5f, height * scale * 0.5f };
-    DrawTexturePro(texture, (Rectangle){0, 0, width, height},
-                   (Rectangle){position.x, position.y, width * scale, height * scale}, origin, angle, tint);
-}
-
-static void drawAttack(const Elite *elite, int index) {
-    Vector2 center = elite->ship.position;
-    if (elite->phase == ELITE_FIRING) {
-        Vector2 end = Vector2Add(center, Vector2Scale(direction(elite->aim), LANCE_REACH));
-        DrawLineEx(center, end, LANCE_WIDTH + 14.0f, Fade(CORAL, 0.23f));
-        DrawLineEx(center, end, LANCE_WIDTH, CORAL);
-        DrawLineEx(center, end, 4.0f, (Color){255, 222, 210, 255});
-    }
-    if (elite->phase != ELITE_WARNING) return;
-
-    float progress = 1.0f - Clamp(elite->time / elite->duration, 0.0f, 1.0f);
-    int rayCount = elite->attack == ATTACK_LANCE ? 1 : patternCount(elite, index);
-    float length = elite->attack == ATTACK_LANCE ? LANCE_REACH :
-                   (elite->attack == ATTACK_RING ? 300.0f : 405.0f);
-    for (int i = 0; i < rayCount; ++i) {
-        float angle = elite->attack == ATTACK_LANCE ? elite->aim : patternAngle(elite, i, rayCount);
-        Vector2 ray = direction(angle);
-        Vector2 origin = Vector2Add(center, muzzleOffset(elite, index, i, rayCount, ray));
-        for (float offset = 0; offset < length - eliteRadius(index); offset += 27.0f) {
-            Vector2 start = Vector2Add(origin, Vector2Scale(ray, offset));
-            Vector2 end = Vector2Add(origin, Vector2Scale(ray, fminf(length - eliteRadius(index), offset + 16.0f)));
-            DrawLineEx(start, end, 1.5f + progress * 2.0f, Fade(AMBER, 0.38f + progress * 0.48f));
-        }
-    }
-    if (elite->attack == ATTACK_RING) {
-        Vector2 gap = Vector2Add(center, Vector2Scale(direction(elite->aim), 127.0f));
-        DrawCircleV(gap, 4.0f, CYAN);
-    }
-    DrawRing(center, eliteRadius(index) + 5.0f, eliteRadius(index) + 8.0f,
-             -90.0f, -90.0f + 360.0f * progress, 48, AMBER);
-}
-
-void drawGame(Game *game) {
-    float blend = Clamp(game->accumulator / STEP, 0.0f, 1.0f);
-    Camera2D camera = game->camera;
-    camera.target = Vector2Lerp(game->previousCameraTarget, camera.target, blend);
-    drawArenaBackdrop(camera, game->sky);
-
-    BeginMode2D(camera);
-    drawSectorLandmarks(game, camera);
-
-    for (int i = 0; i < MAX_ELITES; ++i) {
-        const Elite *elite = &game->elites[i];
-        if (!elite->unlocked || !elite->ship.lives) continue;
-        drawAttack(elite, i);
-        Color tint = elite->ship.hitFlash > 0.0f ? Fade(AMBER, 0.95f) : WHITE;
-        Color accent = isCarrier(i) ? AMBER : WARDEN_ACCENT;
-        Texture2D texture = isCarrier(i) ? game->carrierTexture : game->wardenTexture;
-        if (elite->phase == ELITE_RECOVERY) {
-            DrawCircleGradient(elite->ship.position,
-                               eliteRadius(i) + 35.0f, Fade(CYAN, 0.36f), Fade(CYAN, 0.0f));
-        }
-        drawShip(texture, elite->ship.position, (Vector2){0, -1}, eliteRadius(i) * 2.4f, tint, accent);
-        if (isCarrier(i) && elite->phase != ELITE_RECOVERY) {
-            float radius = eliteRadius(i);
-            DrawRing(elite->ship.position, radius + 9.0f, radius + 11.0f,
-                     30.0f, 150.0f, 24, Fade(AMBER, 0.42f));
-            DrawRing(elite->ship.position, radius + 9.0f, radius + 11.0f,
-                     210.0f, 330.0f, 24, Fade(AMBER, 0.42f));
-        }
-    }
-
-    for (int i = 0; i < MAX_ENEMIES; ++i) {
-        const Ship *scout = &game->scouts[i];
-        if (!scout->lives) continue;
-        drawShip(game->scoutTexture, Vector2Lerp(scout->previous, scout->position, blend),
-                 scout->heading, 64.0f, WHITE, CORAL);
-    }
-
-    for (int i = 0; i < MAX_SHOTS; ++i) {
-        const Shot *shot = &game->shots[i];
-        if (shot->life <= 0.0f) continue;
-        Color color = shot->owner < 0 ? CYAN : CORAL;
-        Vector2 p = Vector2Lerp(shot->previous, shot->position, blend);
-        Vector2 tail = Vector2Subtract(p, Vector2Scale(Vector2Normalize(shot->velocity), 21.0f));
-        DrawLineEx(tail, p, shot->radius * 2.0f + 4.0f, Fade(color, 0.23f));
-        DrawLineEx(tail, p, shot->radius, color);
-        DrawCircleV(p, shot->radius, color);
-        DrawCircleV(p, shot->radius * 0.43f, RAYWHITE);
-    }
-
-    for (int i = 0; i < MAX_PARTICLES; ++i) {
-        const Particle *particle = &game->particles[i];
-        if (particle->life > 0.0f) {
-            DrawCircleV(particle->position, particle->size,
-                        Fade(particle->color, particle->life / particle->totalLife));
-        }
-    }
-    if (game->pulseAnimation > 0.0f) {
-        float progress = 1.0f - game->pulseAnimation / 0.36f;
-        float radius = 28.0f + (PULSE_RADIUS - 28.0f) * (1.0f - powf(1.0f - progress, 3.0f));
-        DrawRing(game->pulseOrigin, radius - 4.0f, radius, 0, 360, 90, Fade(CYAN, 1.0f - progress));
-    }
-
-    Vector2 pilot = Vector2Lerp(game->player.previous, game->player.position, blend);
-    if (game->player.lives > 0) {
-        Vector2 exhaust = Vector2Subtract(pilot, Vector2Scale(game->thrust, 27.0f));
-        DrawCircleGradient(exhaust, 19.0f, Fade(CYAN, 0.55f * Clamp(Vector2Length(game->thrust),0,1)), Fade(CYAN, 0.0f));
-        drawShip(game->pilotTexture, pilot, game->player.heading, 66.0f, WHITE, CYAN);
-        Vector2 muzzle = Vector2Add(pilot, Vector2Scale(game->gunAim, 25));
-        DrawLineEx(pilot, muzzle, 5, (Color){67,101,124,255});
-        DrawCircleV(muzzle, 2.8f, CYAN);
-        if (game->playerHitCooldown > 0.0f) {
-            DrawRing(pilot, 32.0f, 34.5f, 0, 360, 32, Fade(CYAN, game->playerHitCooldown / 1.30f));
-        }
-    }
-    EndMode2D();
-    drawPanel(game, camera);
+    UnloadMusicStream(game->menu->bg_song);
+    UnloadSound(game->menu->hover_sfx);
+    UnloadSound(game->menu->click_sfx);
+    free(game->menu);
+    leaderboardShutdown(&game->leaderboard);
 }
