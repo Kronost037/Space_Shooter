@@ -14,9 +14,10 @@
 #define LB_MAGIC_HEADER 0x4C445242
 #define LB_VERSION 1
 #define LB_FILE_DIR ".game"
-#define LB_FILE_PATH ".game/leaderboard.bin"
+#define LB_FILE_PATH ".game/sector-siege-leaderboard.bin"
 
 #define INITIAL_CAPACITY 16
+#define MAX_ENTRIES 500
 #define ROW_HEIGHT 45.0f
 #define ROW_SPACING 5.0f
 #define P_WIDTH 600.0f
@@ -134,6 +135,15 @@ void leaderboardShutdown(Leaderboard *lb) {
     lb->capacity = 0;
 }
 
+static bool reserveEntries(Leaderboard *lb, int capacity) {
+    if (capacity <= lb->capacity) return true;
+    LeaderboardEntry *entries = realloc(lb->entries, (size_t)capacity * sizeof *entries);
+    if (!entries) return false;
+    lb->entries = entries;
+    lb->capacity = capacity;
+    return true;
+}
+
 void leaderboardLoad(Leaderboard *lb) {
     if (!lb) return;
 
@@ -154,36 +164,31 @@ void leaderboardLoad(Leaderboard *lb) {
         return;
     }
 
-    if (fread(&version, sizeof(uint32_t), 1, file) != 1 || version > LB_VERSION) {
+    if (fread(&version, sizeof(uint32_t), 1, file) != 1 || version != LB_VERSION) {
         fclose(file);
         return;
     }
 
     int fileCount = 0;
-    if (fread(&fileCount, sizeof(int), 1, file) != 1 || fileCount < 0) {
+    if (fread(&fileCount, sizeof(int), 1, file) != 1 || fileCount < 0 || fileCount > MAX_ENTRIES) {
         fclose(file);
         return;
     }
 
 
-    if (fileCount > lb->capacity) {
-        lb->capacity = fileCount + INITIAL_CAPACITY;
-        LeaderboardEntry *newEntries = (LeaderboardEntry *)realloc(lb->entries, lb->capacity * sizeof(LeaderboardEntry));
-        if (!newEntries) {
-            fclose(file);
-            return;
-        }
-        lb->entries = newEntries;
+    if (!reserveEntries(lb, fileCount)) {
+        fclose(file);
+        return;
     }
-
     if (fileCount > 0) {
-        size_t readCount = fread(lb->entries, sizeof(LeaderboardEntry), fileCount, file);
-        lb->count = (int)readCount;
+        size_t count = (size_t)fileCount;
+        lb->count = fread(lb->entries, sizeof *lb->entries, count, file) == count ? fileCount : 0;
+        for (int i = 0; i < lb->count; ++i) lb->entries[i].name[sizeof lb->entries[i].name - 1] = '\0';
     }
 
     fclose(file);
     
-    qsort(lb->entries, lb->count, sizeof(LeaderboardEntry), compareEntries);
+    if (lb->count > 1) qsort(lb->entries, (size_t)lb->count, sizeof *lb->entries, compareEntries);
 
     lb->scroll = 0.0f;
     lb->targetScroll = 0.0f;
@@ -214,25 +219,20 @@ void leaderboardSave(const Leaderboard *lb) {
 void leaderboardAddScore(Leaderboard *lb, const char *name, int score) {
     if (!lb) return;
 
-    if (lb->count >= lb->capacity) {
-        lb->capacity *= 2;
-        LeaderboardEntry *newEntries = (LeaderboardEntry *)realloc(lb->entries, lb->capacity * sizeof(LeaderboardEntry));
-        if (newEntries) {
-            lb->entries = newEntries;
-        } else {
-            return;
+    LeaderboardEntry entry = { .score = score, .timestamp = time(NULL) };
+    snprintf(entry.name, sizeof entry.name, "%s", name);
+    if (lb->count == MAX_ENTRIES) {
+        if (compareEntries(&entry, &lb->entries[MAX_ENTRIES - 1]) >= 0) return;
+        lb->entries[MAX_ENTRIES - 1] = entry;
+    } else {
+        if (lb->count == lb->capacity) {
+            int capacity = lb->capacity > 0 ? lb->capacity * 2 : INITIAL_CAPACITY;
+            if (!reserveEntries(lb, capacity < MAX_ENTRIES ? capacity : MAX_ENTRIES)) return;
         }
+        lb->entries[lb->count++] = entry;
     }
 
-    LeaderboardEntry *entry = &lb->entries[lb->count];
-    strncpy(entry->name, name, sizeof(entry->name) - 1);
-    entry->name[sizeof(entry->name) - 1] = '\0';
-    entry->score = score;
-    entry->timestamp = time(NULL);
-
-    lb->count++;
-    
-    qsort(lb->entries, lb->count, sizeof(LeaderboardEntry), compareEntries);
+    qsort(lb->entries, (size_t)lb->count, sizeof *lb->entries, compareEntries);
     leaderboardSave(lb);
 }
 
@@ -262,8 +262,8 @@ void leaderboardUpdate(Leaderboard *lb) {
 void drawLeaderboard(Leaderboard *lb) {
     if (!lb || !lb->isVisible) return;
    
-    float screenWidth = (float)GetScreenWidth();
-    float screenHeight = (float)GetScreenHeight();
+    float screenWidth = (float)SCREEN_WIDTH;
+    float screenHeight = (float)SCREEN_HEIGHT;
 
     drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, lb->animTimer);
     
@@ -335,7 +335,7 @@ void drawLeaderboard(Leaderboard *lb) {
 
     for (int i = 0; i < lb->count; i++) {
 
-        float rowDelay = 0.3f + (i * 0.05f);
+        float rowDelay = 0.3f + (fminf((float)i, 9.0f) * 0.05f);
         float rowAnim = clampFloat((lb->animTimer - rowDelay) / 0.4f, 0.0f, 1.0f);
         float easedRowAnim = easeOutQuad(rowAnim);
         

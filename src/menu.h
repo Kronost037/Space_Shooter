@@ -48,7 +48,6 @@ struct S_menu {
 };
 
 void updateMenuLayout(Game *game);
-void refreshLayout(Game *game);
 void initializeMenu(Menu *menu);
 void runMenuPhysics(Game *game);
 void drawMenu(Game *game);

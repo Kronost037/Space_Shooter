@@ -3,6 +3,6 @@
 
 #include "game.h"
 
-void drawPanel(Game *game);
+void drawPanel(const Game *game, Camera2D camera);
 
 #endif
