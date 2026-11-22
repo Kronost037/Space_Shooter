@@ -1,6 +1,7 @@
 #ifndef LEADERBOARD_H
 #define LEADERBOARD_H
 
+#include "core.h"
 #include <stdint.h>
 #include <time.h>
 #include <stdbool.h>
@@ -10,8 +11,6 @@
 #include <string.h>
 
 #include <math.h>
-
-
 
 typedef struct {
     char name[32];
@@ -24,12 +23,7 @@ typedef struct {
     int count;
     int capacity;
 
-    float scroll;
-    float targetScroll;    
-
-    float animTimer;
-    float globalTimer;
-    bool isVisible;
+    int page;
 } Leaderboard;
 
 void leaderboardInit(Leaderboard *lb);
@@ -41,6 +35,7 @@ void leaderboardSave(const Leaderboard *lb);
 void leaderboardAddScore(Leaderboard *lb, const char *name, int score);
 
 void leaderboardUpdate(Leaderboard *lb);
-void drawLeaderboard(Leaderboard *lb);
+bool leaderboardBack(void);
+void drawLeaderboard(const Game *game);
 
 #endif

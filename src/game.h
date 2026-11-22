@@ -3,6 +3,7 @@
 
 #include "core.h"
 #include "leaderboard.h"
+#include "rules.h"
 
 #include <raylib.h>
 #include <raymath.h>
@@ -21,8 +22,6 @@
 #define WORLD_SECTOR_HEIGHT 1200
 #define WORLD_WIDTH (WORLD_COLS * WORLD_SECTOR_WIDTH)
 #define WORLD_HEIGHT (WORLD_ROWS * WORLD_SECTOR_HEIGHT)
-#define WARDEN_HP 14
-#define CARRIER_HP 32
 #define PULSE_RECHARGE 15.0f
 #define PULSE_RADIUS 300.0f
 #define SCOUT_REWARDS_PER_STAGE 12
@@ -37,7 +36,7 @@ typedef enum {
     STATE_PAUSE,
 } State;
 
-typedef enum { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES } Attack;
+typedef enum { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES, ATTACK_PINCER } Attack;
 typedef enum { ELITE_IDLE, ELITE_WARNING, ELITE_FIRING, ELITE_RECOVERY } ElitePhase;
 
 typedef struct {
@@ -46,6 +45,7 @@ typedef struct {
     Vector2 velocity;
     float radius;
     float life;
+    unsigned visibleTargets;
     int owner;                 // -1 for pilot shots, otherwise the elite's index.
 } Shot;
 
@@ -75,14 +75,31 @@ typedef struct {
     float duration;
     float aim;
     int cycle;
+    int maxLives;
+    bool echo;
     bool unlocked;
 } Elite;
 
+typedef enum { MISSION_SURVEY, MISSION_RELAYS, MISSION_ESCORT, MISSION_CARRIER } MissionStage;
+
+typedef struct {
+    MissionStage stage;
+    int fixes;
+    Vector2 waypoint, transport;
+    bool contested;
+} Mission;
+
 struct S_game {
+    Mission mission;
+    uint32_t spawnSeed;
     bool quit;
     State currentState;
+    float screenAge;
     Menu *menu;
-    Font font;
+    Font font, bodyFont;
+    Settings settings;
+    int settingRow;
+    bool timedOut;
     Leaderboard leaderboard;
     bool scoreSubmitted;
 
@@ -109,13 +126,15 @@ struct S_game {
     char playerName[32];
     float accumulator;
     float outcomeTime;
-    float elapsedTime;
+    double elapsedTime;
     float fireCooldown;
     float spawnTimer;
     float playerHitCooldown;
     float pulseCharge;
     float pulseAnimation;
     float scoreToast;
+    float dispatchTime;
+    const char *dispatch;
     Vector2 pulseOrigin;
     int score;
     int lastAward;
@@ -129,9 +148,11 @@ struct S_game {
 };
 
 void initializeGame(Game *game);
-void unloadGameAssets(Game *game);
+void shutdownGame(Game *game);
+void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool pulse);
 void runGamePhysics(Game *game);
 void drawGame(Game *game);
 void resetRun(Game *game);
+void resetRunSeeded(Game *game, uint32_t seed);
 
 #endif

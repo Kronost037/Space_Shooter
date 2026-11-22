@@ -1,135 +1,31 @@
 #include "name_entry.h"
-#include "game.h"
-#include "background.h"
+#include "ui/widgets.h"
 
 #include <string.h>
-#include <math.h>
-
-
-// File-scoped static configurations
-static float backspaceHoldTime       = 0.0f;
-static float backspaceRepeatTimer    = 0.0f;
-
-static bool isAllowedNameChar(int ch) {
-    return ch >= 32 && ch <= 126;
-}
 
 void updateNameEntry(Game *game) {
-    int ch = 0;
+    size_t length = strlen(game->playerName);
+    int ch;
     while ((ch = GetCharPressed()) > 0) {
-        size_t len = strlen(game->playerName);
-        if (len < 20 && isAllowedNameChar(ch)) {
-            game->playerName[len] = (char)ch;
-            game->playerName[len + 1] = '\0';
-        }
+        if (length < 20 && ch >= 32 && ch <= 126) game->playerName[length++] = (char)ch;
     }
-
-    float dt = GetFrameTime();
-    
-    if (IsKeyPressed(KEY_BACKSPACE)) {
-
-        size_t len = strlen(game->playerName);
-        if (len > 0) game->playerName[len - 1] = '\0';
-        
-        backspaceHoldTime = 0.0f;
-        backspaceRepeatTimer = 0.0f;
-    }
-    
-    if (IsKeyDown(KEY_BACKSPACE)) {
-        backspaceHoldTime += dt;
-        
-        if (backspaceHoldTime > 0.4f) {
-
-            backspaceRepeatTimer += dt;
-            
-            if (backspaceRepeatTimer >= 0.06f) {
-                size_t len = strlen(game->playerName);
-                if (len > 0) game->playerName[len - 1] = '\0';
-                
-                backspaceRepeatTimer = 0.0f;
-            }
-        }
-    } else {
-        backspaceHoldTime = 0.0f;
-        backspaceRepeatTimer = 0.0f;
-    }
+    if (length && (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))) --length;
+    game->playerName[length] = '\0';
 }
 
 void drawNameEntry(Game *game) {
-    float anim = (float)GetTime();
-    drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, anim);
-
-    Rectangle panel = {
-        ((float)SCREEN_WIDTH - 760.0f) * 0.5f,
-        ((float)SCREEN_HEIGHT - 420.0f) * 0.5f,
-        760.0f, 420.0f
-    };
-
-    DrawRectangleRounded(panel, 0.06f, 18, (Color){ 10, 15, 30, 220 });
-    DrawRectangleRoundedLines(panel, 0.16f, 18, (Color){ 0, 150, 255, 180 });
-
-    Font font = game->font;
-
-    const char *title = "CALLSIGN ENTRY";
-    Vector2 titleSize = MeasureTextEx(font, title, 40.0f, 1.0f);
-    Vector2 titlePos = {
-        panel.x + (panel.width - titleSize.x) * 0.5f,
-        panel.y + 42.0f
-    };
-
-    DrawTextEx(
-        font, 
-        title, 
-        titlePos, 
-        40.0f, 1.0f, 
-        (Color){ 220, 240, 255, 255 }
-    ); // ????
-
-    const char *subtitle = "TYPE YOUR NAME AND PRESS ENTER";
-    Vector2 subtitleSize = MeasureTextEx(font, subtitle, 18.0f, 1.0f);
-    DrawTextEx(
-        font,
-        subtitle, 
-        (Vector2){
-            panel.x + (panel.width - subtitleSize.x) * 0.5f,
-            panel.y + 96.0f
-        }, 
-        18.0f, 1.0f, 
-        (Color){ 120, 150, 180, 255 }
-    );
-
-    Rectangle input = {
-        panel.x + 48.0f,
-        panel.y + 180.0f,
-        panel.width - 96.0f,
-        72.0f
-    };
-
-    DrawRectangleRounded(input, 0.06f, 18, (Color){ 5, 10, 18, 210 });
-    DrawRectangleRoundedLines(input, 0.16f, 18, (Color){ 0, 255, 255, 170 });
-
-    const char *display = (game->playerName[0] != '\0') ? game->playerName : "ENTER NAME";
-    Color displayColor = (game->playerName[0] != '\0') ? (Color){ 220, 240, 255, 255 } : (Color){ 120, 150, 180, 180 };
-
-    Vector2 displayPos = {
-        input.x + 18.0f,
-        input.y + (input.height - 34.0f) * 0.5f - 2.0f
-    };
-    DrawTextEx(font, display, displayPos, 34.0f, 1.0f,displayColor);
-
-    float fontSize = 34.0f;    
-    
-    if (fmodf(anim, 1.0f) < 0.5f) {
-        float caretX = displayPos.x;
-
-        if (game->playerName[0] != '\0') {
-            Vector2 textSize = MeasureTextEx(font, game->playerName, fontSize, 1.0f);
-            caretX += textSize.x + 2.0f;
-        }
-
-        DrawRectangleV(
-            (Vector2){ caretX, input.y + 18.0f },
-            (Vector2){ 2.0f, input.height - 36.0f },
-            (Color){ 0, 255, 255, 220 });
-    }
+    float t = (float)GetTime();
+    uiBackdrop(game, t);
+    uiSurface((Rectangle){302,162,896,571});
+    uiLabel(game, "TRANSMISSION   /   ASTER CONVOY", 361, 217, 21, UI_ICE);
+    uiTitle(game, "The last crossing", 356, 251, 70);
+    uiLabel(game, "Two silent beacons hold the convoy's last route.", 361, 351, 27, UI_PAPER);
+    uiLabel(game, uiCompact() ? "Reach both beacons. Follow the convoy signal." : "Fly through both beacons, then silence the three Wardens.", 361, 395, 25, UI_MUTED);
+    uiLabel(game, "Pilot callsign", 361, 480, 23, UI_ICE);
+    DrawRectangleRec((Rectangle){361,521,778,69}, (Color){24,41,55,255});
+    const char *name = game->playerName;
+    uiLabel(game, *name ? name : "PLAYER", 383, 534, 34, *name ? UI_PAPER : UI_MUTED);
+    float end = 383 + uiTextWidth(game, name, 34);
+    if (*name && fmodf(t, 1.0f) < 0.6f) DrawRectangle((int)end + 3, 541, 2, 30, UI_ICE);
+    uiLabel(game, "Enter to launch     /     Esc to return", 361, 642, 24, UI_PAPER);
 }
