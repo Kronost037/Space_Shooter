@@ -12,8 +12,7 @@
 #define WARDEN_RADIUS 56.0f
 #define CARRIER_RADIUS 73.0f
 #define LANCE_WIDTH 17.0f
-#define LANCE_REACH 780.0f
-#define ENGAGE_RANGE 660.0f
+#define LANCE_REACH 1600.0f
 #define CORAL ((Color){255, 86, 111, 255})
 #define CYAN ((Color){96, 222, 255, 255})
 #define AMBER ((Color){255, 194, 98, 255})
@@ -55,18 +54,14 @@ static float eliteRadius(int index) {
 
 static bool eliteEngaged(const Game *game, int index) {
     const Elite *elite = &game->elites[index];
-    if (!elite->unlocked || elite->ship.lives <= 0 ||
-        Vector2Distance(game->player.position, elite->ship.position) > ENGAGE_RANGE) return false;
-
-    float radius = eliteRadius(index) + 12.0f;
-    Vector2 screen = GetWorldToScreen2D(elite->ship.position, game->camera);
-    if (screen.x < radius || screen.x > SCREEN_WIDTH - radius ||
-        screen.y < radius || screen.y > SCREEN_HEIGHT - radius) return false;
-
-    // Reserve both HUD corners regardless of the local radar preference.
-    bool leftCorner = screen.x < 250.0f + radius && screen.y < 204.0f + radius;
-    bool rightCorner = screen.x > SCREEN_WIDTH - 225.0f - radius && screen.y < 203.0f + radius;
-    return !leftCorner && !rightCorner;
+    // Attack permission depends on whether the pilot can see the emitter.
+    // Damage from a pilot bolt is resolved independently in world space.
+    if (!elite->unlocked || elite->ship.lives <= 0) return false;
+    Vector2 p = GetWorldToScreen2D(elite->ship.position, game->camera);
+    if (!onScreen(game->camera, elite->ship.position, 12.0f)) return false;
+    bool behindStatus = p.x < 250 && p.y < 204;
+    bool behindRadar = game->showRadar && p.x > SCREEN_WIDTH - 225 && p.y < 203;
+    return !behindStatus && !behindRadar;
 }
 
 static void burst(Game *game, Vector2 position, Color color, int count) {
@@ -86,6 +81,7 @@ static void burst(Game *game, Vector2 position, Color color, int count) {
 }
 
 static void award(Game *game, int points) {
+    points = (points * flightRules[game->settings.difficulty].scorePercent + 50) / 100;
     game->score += points;
     game->lastAward = points;
     game->scoreToast = 0.85f;
@@ -123,8 +119,8 @@ static void damageElite(Game *game, int index, int amount) {
     int previousLives = elite->ship.lives;
     elite->ship.lives -= amount;
     elite->ship.hitFlash = 0.11f;
-    if (isCarrier(index) && previousLives > CARRIER_HP / 2 && elite->ship.lives <= CARRIER_HP / 2) {
-        elite->ship.lives = CARRIER_HP / 2;
+    if (isCarrier(index) && previousLives > elite->maxLives / 2 && elite->ship.lives <= elite->maxLives / 2) {
+        elite->ship.lives = elite->maxLives / 2;
         elite->phase = ELITE_IDLE;
         elite->cycle = 2;
         elite->time = 0.45f;
@@ -170,7 +166,7 @@ static bool addShot(Game *game, int owner, Vector2 position, Vector2 heading,
 static int patternCount(const Elite *elite, int index) {
     if (elite->attack == ATTACK_LANES) return 7;
     if (elite->attack == ATTACK_RING) return 18;
-    return isCarrier(index) ? (elite->ship.lives <= CARRIER_HP / 2 ? 9 : 7) : 5;
+    return isCarrier(index) ? (elite->ship.lives <= elite->maxLives / 2 ? 9 : 7) : 5;
 }
 
 static float patternAngle(const Elite *elite, int ray, int count) {
@@ -197,7 +193,7 @@ static void firePattern(Game *game, int index) {
     for (int i = 0; i < count; ++i) {
         Vector2 heading = direction(patternAngle(elite, i, count));
         Vector2 muzzle = Vector2Add(elite->ship.position, muzzleOffset(elite, index, i, count, heading));
-        addShot(game, index, muzzle, heading, isCarrier(index) ? 565.0f : 460.0f,
+        addShot(game, index, muzzle, heading, (isCarrier(index) ? 565.0f : 460.0f) * flightRules[game->settings.difficulty].boltSpeed,
                 elite->attack == ATTACK_RING ? 6.0f : 5.0f, 2.0f);
     }
     PlaySound(game->clearSound);
@@ -229,13 +225,14 @@ static void updateElite(Game *game, int index) {
 
     switch (elite->phase) {
     case ELITE_IDLE: {
-        static const Attack carrierPatterns[] = { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING };
-        elite->attack = isCarrier(index) ? carrierPatterns[elite->cycle % 3]
+        static const Attack carrierPatterns[] = { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES };
+        elite->attack = isCarrier(index) ? carrierPatterns[elite->cycle % 4]
                                          : (Attack[]){ ATTACK_FAN, ATTACK_LANCE, ATTACK_LANES }[index];
         Vector2 toPlayer = Vector2Subtract(game->player.position, elite->ship.position);
         elite->aim = atan2f(toPlayer.y, toPlayer.x);
         elite->phase = ELITE_WARNING;
         elite->duration = elite->attack == ATTACK_LANCE ? 0.95f : 0.80f;
+        elite->duration *= flightRules[game->settings.difficulty].warningTime;
         elite->time = elite->duration;
         PlaySound(game->warningSound);
         break;
@@ -258,7 +255,7 @@ static void updateElite(Game *game, int index) {
     case ELITE_RECOVERY:
         ++elite->cycle;
         elite->phase = ELITE_IDLE;
-        elite->time = isCarrier(index) && elite->ship.lives <= CARRIER_HP / 2 ? 0.22f : 0.55f;
+        elite->time = isCarrier(index) && elite->ship.lives <= elite->maxLives / 2 ? 0.22f : 0.55f;
         break;
     }
 }
@@ -280,7 +277,7 @@ static void activatePulse(Game *game) {
         }
     }
     for (int i = 0; i < MAX_ELITES; ++i) {
-        if (eliteEngaged(game, i) &&
+        if (game->elites[i].unlocked && game->elites[i].ship.lives > 0 &&
             Vector2Distance(game->elites[i].ship.position, game->pulseOrigin) <= PULSE_RADIUS) {
             damageElite(game, i, 3);
         }
@@ -322,10 +319,22 @@ static void spawnScout(Game *game) {
 }
 
 static void updateScouts(Game *game) {
+    const FlightRules *rules = &flightRules[game->settings.difficulty];
+    Elite *carrier = &game->elites[MAX_ELITES - 1];
+    bool duel = carrier->unlocked && carrier->ship.lives > 0 &&
+                onScreen(game->camera, carrier->ship.position, -160.0f);
+    int escorts = 0;
+    for (int i = 0; duel && i < MAX_ENEMIES; ++i) {
+        Ship *scout = &game->scouts[i];
+        if (!scout->lives) continue;
+        if (escorts++ == 0) continue;
+        burst(game, scout->position, CYAN, 5);
+        scout->lives = 0;
+    }
     game->spawnTimer -= STEP;
     if (game->spawnTimer <= 0.0f) {
-        spawnScout(game);
-        game->spawnTimer = 2.1f - 0.32f * (float)game->wardensCleared;
+        if (!duel || escorts == 0) spawnScout(game);
+        game->spawnTimer = duel ? 12.0f : (2.1f - 0.32f * game->wardensCleared) * rules->spawnInterval;
     }
 
     for (int i = 0; i < MAX_ENEMIES; ++i) {
@@ -344,7 +353,7 @@ static void updateScouts(Game *game) {
         Vector2 desired = Vector2Normalize(Vector2Add(toward, Vector2Scale(separation, 0.95f)));
         scout->heading = Vector2Normalize(Vector2Lerp(scout->heading, desired, 1.0f - expf(-7.0f * STEP)));
         scout->previous = scout->position;
-        float speed = scout->speed + 47.0f * (float)game->wardensCleared;
+        float speed = (scout->speed + 47.0f * game->wardensCleared) * rules->scoutSpeed * (duel ? 0.38f : 1.0f);
         scout->position = Vector2Add(scout->position, Vector2Scale(scout->heading, speed * STEP));
         if (Vector2Distance(scout->position, game->player.position) <= SCOUT_RADIUS + PILOT_RADIUS) {
             damagePlayer(game, "Scout impact");
@@ -392,21 +401,19 @@ static void updateShots(Game *game) {
 
         for (int elite = 0; elite < MAX_ELITES; ++elite) {
             Elite *target = &game->elites[elite];
-            if (!eliteEngaged(game, elite) || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
+            if (!target->unlocked || target->ship.lives <= 0 || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
             shot->life = 0.0f;
-            if (isCarrier(elite) && target->phase != ELITE_RECOVERY) {
-                burst(game, shot->position, AMBER, 3);
-            } else {
-                damageElite(game, elite, target->phase == ELITE_RECOVERY ? 2 : 1);
-                burst(game, shot->position, WARDEN_ACCENT, 4);
-            }
+            bool exposed = target->phase == ELITE_RECOVERY;
+            damageElite(game, elite, exposed ? 2 : 1);
+            burst(game, shot->position, exposed ? CYAN : AMBER, 4);
             break;
         }
     }
 }
 
 static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
-    game->elapsedTime += STEP;
+    ++game->flightTicks;
+    game->elapsedTime = game->flightTicks / 120.0f;
     game->scoreToast = fmaxf(0.0f, game->scoreToast - STEP);
     game->pulseAnimation = fmaxf(0.0f, game->pulseAnimation - STEP);
     game->playerHitCooldown = fmaxf(0.0f, game->playerHitCooldown - STEP);
@@ -432,7 +439,7 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
     game->fireCooldown -= STEP;
     if (game->fireCooldown <= 0.0f && Vector2LengthSqr(aim) > 0.0f) {
         Vector2 muzzle = Vector2Add(player->position, Vector2Scale(aim, 25.0f));
-        if (addShot(game, -1, muzzle, aim, 1100.0f, 4.0f, 0.87f)) {
+        if (addShot(game, -1, muzzle, aim, 1100.0f, 4.0f, 1.75f)) {
             game->fireCooldown = 0.16f;
             PlaySound(game->laserSound);
         }
@@ -443,6 +450,10 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
         updateScouts(game);
         for (int i = 0; i < MAX_ELITES && player->lives > 0; ++i) updateElite(game, i);
         if (player->lives > 0) updateShots(game);
+    }
+    unsigned limit = (unsigned)game->settings.timerMinutes * 60u * 120u;
+    if (game->settings.timerEnabled && game->flightTicks >= limit && player->lives > 0 && !game->missionCleared) {
+        game->timedOut = true;
     }
 }
 
@@ -458,7 +469,7 @@ static void updateEffects(Game *game, float dt) {
 void runGamePhysics(Game *game) {
     float dt = fminf(GetFrameTime(), 0.10f);
     updateEffects(game, dt);
-    if (game->player.lives <= 0 || game->missionCleared) {
+    if (game->player.lives <= 0 || game->missionCleared || game->timedOut) {
         game->outcomeTime += dt;
         return;
     }
@@ -467,7 +478,7 @@ void runGamePhysics(Game *game) {
     Vector2 aim = keyboardAxis(KEY_A, KEY_D, KEY_W, KEY_S);
     if (IsKeyPressed(KEY_SPACE)) game->pulseQueued = true;
     game->accumulator += dt;
-    while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared) {
+    while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared && !game->timedOut) {
         step(game, move, aim, game->pulseQueued);
         game->pulseQueued = false;
         game->accumulator -= STEP;
@@ -487,9 +498,12 @@ void resetRun(Game *game) {
     };
     for (int i = 0; i < MAX_ELITES; ++i) {
         Vector2 position = { sites[i].x * WORLD_SECTOR_WIDTH, sites[i].y * WORLD_SECTOR_HEIGHT };
+        const FlightRules *rules = &flightRules[game->settings.difficulty];
+        int hull = isCarrier(i) ? rules->carrierHull : rules->wardenHull;
         game->elites[i] = (Elite){
+            .maxLives = hull,
             .ship = { .position = position, .previous = position,
-                      .lives = isCarrier(i) ? CARRIER_HP : WARDEN_HP },
+                      .lives = hull },
             .unlocked = !isCarrier(i), .time = 0.55f
         };
     }
@@ -503,6 +517,8 @@ void resetRun(Game *game) {
     game->accumulator = 0.0f;
     game->outcomeTime = 0.0f;
     game->elapsedTime = 0.0f;
+    game->flightTicks = 0;
+    game->timedOut = false;
     game->spawnTimer = 0.9f;
     game->fireCooldown = 0.0f;
     game->playerHitCooldown = 0.0f;
@@ -531,7 +547,7 @@ static Texture2D loadShip(const char *path) {
 }
 
 void initializeGame(Game *game) {
-    *game = (Game){ .showRadar = true };
+    *game = (Game){ .showRadar = true, .settings = DEFAULT_SETTINGS };
     game->sky = loadShip("src/Assets/Siege/deep-field.png");
     game->pilotTexture = loadShip("src/Assets/Siege/pilot.png");
     game->scoutTexture = loadShip("src/Assets/Siege/scout.png");
@@ -542,14 +558,13 @@ void initializeGame(Game *game) {
     game->damageSound = LoadSound("src/Assets/Siege/damage.wav");
     game->clearSound = LoadSound("src/Assets/Siege/impact.wav");
     game->pulseSound = LoadSound("src/Assets/Siege/pulse.wav");
-    SetSoundVolume(game->laserSound, 0.32f);
-    SetSoundVolume(game->warningSound, 0.44f);
-    SetSoundVolume(game->damageSound, 0.47f);
-    SetSoundVolume(game->clearSound, 0.30f);
-    SetSoundVolume(game->pulseSound, 0.40f);
 
-    game->font = LoadFontEx("src/Assets/Siege/Rajdhani-Bold.ttf", 64, NULL, 0);
-    SetTextureFilter(game->font.texture, TEXTURE_FILTER_BILINEAR);
+    game->font = LoadFontEx("src/Assets/Siege/Rajdhani-Bold.ttf", 96, NULL, 0);
+    game->bodyFont = LoadFontEx("src/Assets/Siege/AtkinsonHyperlegible-Regular.ttf", 32, NULL, 0);
+    GenTextureMipmaps(&game->font.texture);
+    GenTextureMipmaps(&game->bodyFont.texture);
+    SetTextureFilter(game->font.texture, TEXTURE_FILTER_TRILINEAR);
+    SetTextureFilter(game->bodyFont.texture, TEXTURE_FILTER_TRILINEAR);
     game->menu = malloc(sizeof *game->menu);
     initializeMenu(game->menu);
     leaderboardInit(&game->leaderboard);
@@ -567,6 +582,7 @@ void unloadGameAssets(Game *game) {
     UnloadSound(game->damageSound);
     UnloadSound(game->clearSound);
     UnloadSound(game->pulseSound);
+    UnloadFont(game->bodyFont);
     UnloadFont(game->font);
 }
 
@@ -693,5 +709,5 @@ void drawGame(Game *game) {
         }
     }
     EndMode2D();
-    drawPanel(game, camera);
+
 }

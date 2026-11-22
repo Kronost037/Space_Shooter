@@ -1,114 +1,39 @@
 #include "game_over.h"
-#include "game.h"
 #include "menu.h"
-#include "background.h"
-#include <stdio.h>
+#include "ui/widgets.h"
 
-// Retain state variables privately to manage clean audio hover hooks
-static bool prevHoverPlay = false;
-static bool prevHoverMenu = false;
-
-static Rectangle getButtonRect(Rectangle panel, int index) {
-    const float buttonW = 220.0f;
-    const float buttonH = 56.0f;
-    const float gap = 20.0f;
-    const float bottomPad = 34.0f;
-    float total = buttonW * 2.0f + gap;
-    return (Rectangle){
-        panel.x + (panel.width - total) * 0.5f + index * (buttonW + gap),
-        panel.y + panel.height - bottomPad - buttonH,
-        buttonW,
-        buttonH
-    };
-}
+static const Rectangle retry = {356, 632, 375, 57};
+static const Rectangle back = {756, 632, 375, 57};
 
 void updateGameOver(Game *game) {
-    Rectangle panel = { ((float)SCREEN_WIDTH - 760.0f) * 0.5f, ((float)SCREEN_HEIGHT - 400.0f) * 0.5f, 760.0f, 400.0f };
-    Rectangle playAgain = getButtonRect(panel, 0);
-    Rectangle mainMenu = getButtonRect(panel, 1);
-    Vector2 mouse = GetMousePosition();
-    
-    bool hoverPlay = CheckCollisionPointRec(mouse, playAgain);
-    bool hoverMenu = CheckCollisionPointRec(mouse, mainMenu);
-    
-    if (hoverPlay && !prevHoverPlay) PlaySound(game->menu->hover_sfx);
-    if (hoverMenu && !prevHoverMenu) PlaySound(game->menu->hover_sfx);
-    
-    prevHoverPlay = hoverPlay;
-    prevHoverMenu = hoverMenu;
-    
-    if (hoverPlay && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    if (uiClicked(back) || IsKeyPressed(KEY_ESCAPE)) {
+        PlaySound(game->menu->click_sfx);
+        game->currentState = STATE_MENU;
+    } else if (uiClicked(retry) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE)) {
         PlaySound(game->menu->click_sfx);
         game->currentState = STATE_GAME;
         resetRun(game);
-        prevHoverPlay = prevHoverMenu = false;
-    } else if (hoverMenu && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        PlaySound(game->menu->click_sfx);
-        game->currentState = STATE_MENU;
-        prevHoverPlay = prevHoverMenu = false;
-    }
-    
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE)) {
-        PlaySound(game->menu->click_sfx);
-        game->currentState = STATE_GAME;
-        resetRun(game);
-        prevHoverPlay = prevHoverMenu = false;
-    }
-    
-    if (IsKeyPressed(KEY_ESCAPE)) {
-        PlaySound(game->menu->click_sfx);
-        game->currentState = STATE_MENU;
-        ShowCursor();
-        prevHoverPlay = prevHoverMenu = false;
     }
 }
 
 void drawGameOver(Game *game) {
-    float anim = (float)GetTime();
-    drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, anim);
-
-    Rectangle panel = { ((float)SCREEN_WIDTH - 760.0f) * 0.5f, ((float)SCREEN_HEIGHT - 400.0f) * 0.5f, 760.0f, 400.0f };
-    DrawRectangleRounded(panel, 0.06f, 18, (Color){ 10, 15, 30, 220 });
-    DrawRectangleRoundedLines(panel, 0.16f, 18, (Color){ 180, 0, 255, 170 });
-
-    Font font = game->font;
-    const char *title = game->missionCleared ? "SECTOR CLEARED" : "SHIP LOST";
-    Vector2 titleSize = MeasureTextEx(font, title, 42.0f, 1.0f);
-    DrawTextEx(font, title, (Vector2){ panel.x + (panel.width - titleSize.x) * 0.5f, panel.y + 42.0f }, 42.0f, 1.0f, (Color){ 220, 240, 255, 255 });
-
-    const char *name = (game->playerName[0] != '\0') ? game->playerName : "PLAYER";
-    Vector2 nameSize = MeasureTextEx(font, name, 34.0f, 1.0f);
-    DrawTextEx(font, name, (Vector2){ panel.x + (panel.width - nameSize.x) * 0.5f, panel.y + 140.0f }, 34.0f, 1.0f, (Color){ 0, 255, 255, 255 });
-    
-    char scoreBuf[64];
-    snprintf(scoreBuf, sizeof(scoreBuf), "SCORE  %d", game->score);
-    Vector2 scoreSize = MeasureTextEx(font, scoreBuf, 28.0f, 1.0f);
-    DrawTextEx(font, scoreBuf, (Vector2){ panel.x + (panel.width - scoreSize.x) * 0.5f, panel.y + 200.0f }, 28.0f, 1.0f, (Color){ 220, 240, 255, 255 });
-
-    const char *summary = TextFormat("%d SCOUTS  /  %d WARDENS  /  %d:%02d",
-                                     game->scoutKills, game->wardensCleared,
-                                     (int)game->elapsedTime / 60, (int)game->elapsedTime % 60);
-    int summaryX = (SCREEN_WIDTH - MeasureText(summary, 17)) / 2;
-    DrawText(summary, summaryX, (int)panel.y + 254, 17, (Color){161, 181, 215, 255});
-
-    if (!game->missionCleared && game->damageCause) {
-        DrawText(game->damageCause, (SCREEN_WIDTH - MeasureText(game->damageCause, 18)) / 2,
-                 (int)panel.y + 278, 18, (Color){255,151,150,255});
-    }
-    if (game->missionCleared && game->clearBonus > 0) {
-        const char *bonus = TextFormat("QUICK CLEAR  +%d", game->clearBonus);
-        DrawText(bonus, (SCREEN_WIDTH - MeasureText(bonus, 16)) / 2, (int)panel.y + 280,
-                 16, (Color){96, 222, 255, 255});
-    }
-
-    // Render Button Layout Boundaries
-    Rectangle playAgain = getButtonRect(panel, 0);
-    Rectangle mainMenu = getButtonRect(panel, 1);
-    Vector2 mouse = GetMousePosition();
-
-    DrawRectangleRounded(playAgain, 0.06f, 18, CheckCollisionPointRec(mouse, playAgain) ? (Color){ 0, 40, 70, 230 } : (Color){ 5, 10, 18, 210 });
-    DrawRectangleRounded(mainMenu, 0.06f, 18, CheckCollisionPointRec(mouse, mainMenu) ? (Color){ 30, 10, 50, 230 } : (Color){ 5, 10, 18, 210 });
-
-    DrawTextEx(font, "PLAY AGAIN", (Vector2){ playAgain.x + 20.0f, playAgain.y + 16.0f }, 20.0f, 1.0f, WHITE);
-    DrawTextEx(font, "MAIN MENU", (Vector2){ mainMenu.x + 25.0f, mainMenu.y + 16.0f }, 20.0f, 1.0f, WHITE);
+    uiBackdrop(game, (float)GetTime());
+    uiSurface((Rectangle){298,145,904,602});
+    uiLabel(game, "ASTER CONVOY   /   FLIGHT DEBRIEF", 356, 199, 21, UI_ICE);
+    const char *title = game->missionCleared ? "Corridor open" : game->timedOut ? "Flight time elapsed" : "Signal lost";
+    uiTitle(game, title, 351, 239, 69);
+    const char *dispatch = game->missionCleared ? "The last transport made the jump." :
+        game->timedOut ? "Flight control has closed your assigned window." :
+        TextFormat("Last transmission: %s.", game->damageCause ? game->damageCause : "hull breach");
+    uiLabel(game, dispatch, 357, 332, 26, UI_MUTED);
+    uiLabel(game, TextFormat("%s   /   %s", game->playerName, flightRules[game->settings.difficulty].name),
+            356, 408, 27, UI_PAPER);
+    uiTitle(game, TextFormat("%d points", game->score), 352, 448, 55);
+    uiLabel(game, TextFormat("%d scouts     /     %d wardens     /     %d:%02d flight time",
+            game->scoutKills, game->wardensCleared, (int)game->elapsedTime / 60,
+            (int)game->elapsedTime % 60), 356, 540, 23, UI_MUTED);
+    if (game->clearBonus)
+        uiLabel(game, TextFormat("Quick-clear bonus: %d base points", game->clearBonus), 356, 580, 21, UI_ICE);
+    uiButton(game, retry, "Enter   /   Fly again", CheckCollisionPointRec(GetMousePosition(), retry));
+    uiButton(game, back, "Esc   /   Main menu", CheckCollisionPointRec(GetMousePosition(), back));
 }

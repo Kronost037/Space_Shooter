@@ -39,3 +39,18 @@ jobs:
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             exit "$status"
           fi
+
+      - name: Exercise combat and capture the interface
+        run: |
+          gcc -std=c17 -Wall -Wextra -Werror -O1 -g -fsanitize=undefined -fno-sanitize-recover=all \
+            tests/flight.c src/arena.c src/rules.c src/ui/widgets.c src/settings.c src/menu.c \
+            src/leaderboard.c src/panel.c src/game_over.c src/name_entry.c \
+            -Iraylib/include -Lraylib/lib -lraylib -lm -lX11 -o flight-check
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./flight-check
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flight-screenshots
+          path: screenshots/*.png
+          compression-level: 0
+          if-no-files-found: error

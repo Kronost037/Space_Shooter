@@ -11,11 +11,11 @@ static void card(Rectangle rect, Color accent) {
 }
 
 static void drawHudText(const Game *game, const char *label, float x, float y, float size, Color color) {
-    DrawTextEx(game->font, label, (Vector2){x, y}, size, 0.8f, color);
+    DrawTextEx(game->bodyFont, label, (Vector2){x, y}, size, 0.8f, color);
 }
 
 static void centered(const Game *game, const char *label, float y, float size, Color color) {
-    float width = MeasureTextEx(game->font, label, size, 0.8f).x;
+    float width = MeasureTextEx(game->bodyFont, label, size, 0.8f).x;
     drawHudText(game, label, (SCREEN_WIDTH - width) * 0.5f, y, size, color);
 }
 
@@ -96,15 +96,15 @@ static void drawObjective(const Game *game, Camera2D camera) {
     if (ahead) {
         centered(game, carrier ? "COMMAND CARRIER" : "SECTOR WARDEN", 21, 24, accent);
         bar((Rectangle){SCREEN_WIDTH * 0.5f - 155.0f, 51, 310, 6},
-            (float)elite->ship.lives / (float)(carrier ? CARRIER_HP : WARDEN_HP), accent);
+            (float)elite->ship.lives / (float)elite->maxLives, accent);
         if (elite->phase == ELITE_WARNING) {
             const char *attack = elite->attack == ATTACK_LANES ? "LANE BATTERY" : elite->attack == ATTACK_LANCE ? (elite->time > 0.48f ? "TRACKING" : "LANCE LOCKED") :
                                  elite->attack == ATTACK_RING ? "RING BURST" : "FAN VOLLEY";
             centered(game, attack, 61, 19, AMBER);
         } else if (elite->phase == ELITE_RECOVERY) {
-            centered(game, "CORE EXPOSED", 61, 19, CYAN);
+            centered(game, "CORE EXPOSED   /   DOUBLE DAMAGE", 61, 19, CYAN);
         } else if (carrier) {
-            centered(game, "SHIELDED", 61, 19, MUTED);
+            centered(game, "ARMORED", 61, 19, MUTED);
         }
     } else {
         Vector2 center = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
@@ -122,7 +122,7 @@ static void drawObjective(const Game *game, Camera2D camera) {
                      Vector2Add(Vector2Subtract(marker, Vector2Scale(arrow, 7.0f)), Vector2Scale(wing, 7.0f)),
                      accent);
         const char *label = carrier ? "CARRIER" : "WARDEN";
-        drawHudText(game, label, marker.x - MeasureTextEx(game->font, label, 17.0f, 0.8f).x * 0.5f, marker.y + 13.0f, 17.0f, accent);
+        drawHudText(game, label, marker.x - MeasureTextEx(game->bodyFont, label, 17.0f, 0.8f).x * 0.5f, marker.y + 13.0f, 17.0f, accent);
     }
 }
 
@@ -156,6 +156,11 @@ void drawPanel(const Game *game, Camera2D camera) {
     const char *objective = game->wardensCleared < MAX_ELITES - 1 ?
         TextFormat("WARDENS  %d / %d", game->wardensCleared, MAX_ELITES - 1) : "DESTROY THE CARRIER";
     centered(game, objective, SCREEN_HEIGHT - 44, 21, game->wardensCleared < MAX_ELITES - 1 ? WARDEN_ACCENT : AMBER);
+    if (game->settings.timerEnabled) {
+        int remaining = (int)ceilf(game->settings.timerMinutes * 60 - game->elapsedTime);
+        const char *clock = TextFormat("%d:%02d", remaining / 60, remaining % 60);
+        drawHudText(game, clock, 36, 215, 26, remaining <= 15 ? AMBER : RAYWHITE);
+    }
     if (game->elapsedTime < 12.0f) {
         centered(game, "ARROWS MOVE   /   WASD FIRE   /   M RADAR", SCREEN_HEIGHT - 71, 18,
                  Fade(MUTED, Clamp((12.0f - game->elapsedTime) / 2.0f, 0.0f, 1.0f)));

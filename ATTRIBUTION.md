@@ -13,3 +13,5 @@ Indian Type Foundry is redistributed under the SIL Open Font License.
 The license is included in `src/Assets/Siege/OFL.txt`.
 
 The deep-field sky is original generated artwork for Sector Siege.
+
+Atkinson Hyperlegible Regular by the Braille Institute of America is distributed under the SIL Open Font License. See `src/Assets/Siege/Atkinson-OFL.txt`.

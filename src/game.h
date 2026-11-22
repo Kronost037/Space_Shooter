@@ -3,6 +3,7 @@
 
 #include "core.h"
 #include "leaderboard.h"
+#include "rules.h"
 
 #include <raylib.h>
 #include <raymath.h>
@@ -21,8 +22,6 @@
 #define WORLD_SECTOR_HEIGHT 1200
 #define WORLD_WIDTH (WORLD_COLS * WORLD_SECTOR_WIDTH)
 #define WORLD_HEIGHT (WORLD_ROWS * WORLD_SECTOR_HEIGHT)
-#define WARDEN_HP 14
-#define CARRIER_HP 32
 #define PULSE_RECHARGE 15.0f
 #define PULSE_RADIUS 300.0f
 #define SCOUT_REWARDS_PER_STAGE 12
@@ -75,6 +74,7 @@ typedef struct {
     float duration;
     float aim;
     int cycle;
+    int maxLives;
     bool unlocked;
 } Elite;
 
@@ -82,7 +82,11 @@ struct S_game {
     bool quit;
     State currentState;
     Menu *menu;
-    Font font;
+    Font font, bodyFont;
+    Settings settings;
+    int settingRow;
+    unsigned int flightTicks;
+    bool timedOut;
     Leaderboard leaderboard;
     bool scoreSubmitted;
 

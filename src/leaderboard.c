@@ -1,6 +1,6 @@
 #include "game.h"
 #include "leaderboard.h"
-#include "background.h"
+#include "ui/widgets.h"
 
 #if defined(_WIN32)
     #include <direct.h>
@@ -18,27 +18,7 @@
 
 #define INITIAL_CAPACITY 16
 #define MAX_ENTRIES 500
-#define ROW_HEIGHT 45.0f
-#define ROW_SPACING 5.0f
-#define P_WIDTH 600.0f
-#define P_HEIGHT 650.0f
-#define LIST_HEIGHT 465.0f
-
-
-static const Color COLOR_BG_GLASS      = { 10, 15, 30, 220 };
-static const Color COLOR_PANEL_BORDER  = { 0, 150, 255, 180 };
-static const Color COLOR_CYAN_GLOW     = { 0, 255, 255, 200 };
-static const Color COLOR_PURPLE_GLOW   = { 180, 0, 255, 150 };
-static const Color COLOR_TEXT_HEADER   = { 220, 240, 255, 255 };
-static const Color COLOR_TEXT_MUTED    = { 120, 150, 180, 255 };
-static const Color COLOR_ROW_HOVER     = { 20, 40, 80, 200 };
-static const Color COLOR_SCROLLBAR     = { 0, 200, 255, 150 };
-
-static const Color COLOR_GOLD          = { 255, 215, 0, 255 };
-static const Color COLOR_SILVER        = { 192, 192, 192, 255 };
-static const Color COLOR_BRONZE        = { 205, 127, 50, 255 };
-
-
+#define PAGE_SIZE 8
 
 static void ensureDirectory(void) {
     MAKE_DIR(LB_FILE_DIR);
@@ -57,56 +37,6 @@ static int compareEntries(const void *a, const void *b) {
     return 0;
 }
 
-static float clampFloat(float value, float min, float max) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
-}
-
-static float lerpFloat(float start, float end, float amount) {
-    return start + amount * (end - start);
-}
-
-static float easeOutQuad(float t) {
-    return t * (2.0f - t);
-}
-
-static void drawNeonGlow(Rectangle rec, Color color, int iterations) {
-    for (int i = 0; i < iterations; i++) {
-        Rectangle glowRec = {
-            rec.x - i, rec.y - i,
-            rec.width + i * 2, rec.height + i * 2
-        };
-        Color c = color;
-        c.a = color.a / (i + 1);
-        DrawRectangleRoundedLines(glowRec, 0.2f, 8, c);
-    }
-}
-
-static void drawScrollbar(Rectangle panelRec, float scroll, float maxScroll, float contentHeight) {
-    if (maxScroll <= 0) return;
-
-    float viewRatio = panelRec.height / contentHeight;
-    float trackHeight = panelRec.height - 20.0f;
-    float thumbHeight = trackHeight * viewRatio;
-    if (thumbHeight < 20.0f) thumbHeight = 20.0f;
-
-    float scrollRatio = scroll / maxScroll;
-    float thumbY = panelRec.y + 10.0f + scrollRatio * (trackHeight - thumbHeight);
-
-    Rectangle trackRec = { panelRec.x + panelRec.width - 15.0f, panelRec.y + 10.0f, 4.0f, trackHeight };
-    Rectangle thumbRec = { panelRec.x + panelRec.width - 16.0f, thumbY, 6.0f, thumbHeight };
-
-
-    DrawRectangleRounded(trackRec, 1.0f, 4, (Color){ 255, 255, 255, 10 });
-    
-
-    DrawRectangleRounded(thumbRec, 1.0f, 8, COLOR_SCROLLBAR);
-    drawNeonGlow(thumbRec, COLOR_CYAN_GLOW, 3);
-}
-
-
-
 void leaderboardInit(Leaderboard *lb) {
     if (!lb) return;
     
@@ -118,10 +48,8 @@ void leaderboardInit(Leaderboard *lb) {
         return;
     }
     
-    lb->scroll = 0.0f;
-    lb->targetScroll = 0.0f;
-    lb->animTimer = 0.0f;
-    lb->isVisible = true;
+    lb->page = 0;
+
 }
 
 void leaderboardShutdown(Leaderboard *lb) {
@@ -148,8 +76,7 @@ void leaderboardLoad(Leaderboard *lb) {
     if (!lb) return;
 
     lb->count = 0;
-    lb->scroll = 0.0f;
-    lb->targetScroll = 0.0f;
+    lb->page = 0;
     
     FILE *file = fopen(LB_FILE_PATH, "rb");
     if (!file) {
@@ -190,8 +117,7 @@ void leaderboardLoad(Leaderboard *lb) {
     
     if (lb->count > 1) qsort(lb->entries, (size_t)lb->count, sizeof *lb->entries, compareEntries);
 
-    lb->scroll = 0.0f;
-    lb->targetScroll = 0.0f;
+    lb->page = 0;
 }
 
 void leaderboardSave(const Leaderboard *lb) {
@@ -236,172 +162,42 @@ void leaderboardAddScore(Leaderboard *lb, const char *name, int score) {
     leaderboardSave(lb);
 }
 
+static const Rectangle previous = {790, 726, 158, 54};
+static const Rectangle next = {966, 726, 158, 54};
+static const Rectangle back = {372, 726, 220, 54};
+
 void leaderboardUpdate(Leaderboard *lb) {
-    if (!lb) return;
-
-    float dt = GetFrameTime();
-
-
-    if (lb->isVisible && lb->animTimer < 3.0f) {
-        lb->animTimer += dt;
-    }
-
-
-    float contentHeight = lb->count * (ROW_HEIGHT + ROW_SPACING) - ROW_SPACING;
-    float maxScroll = (contentHeight > LIST_HEIGHT) ? (contentHeight - LIST_HEIGHT) : 0.0f;
-    
-    float wheelMove = GetMouseWheelMove();
-    if (wheelMove != 0.0f) {
-        lb->targetScroll -= wheelMove * 60.0f;
-    }
-
-    lb->targetScroll = clampFloat(lb->targetScroll, 0.0f, maxScroll);
-    lb->scroll = lerpFloat(lb->scroll, lb->targetScroll, dt * 12.0f);
+    float wheel = GetMouseWheelMove();
+    int dir = (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_DOWN) || wheel < 0 || uiClicked(next)) -
+              (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_UP) || wheel > 0 || uiClicked(previous));
+    int last = lb->count ? (lb->count - 1) / PAGE_SIZE : 0;
+    lb->page = (int)Clamp(lb->page + dir, 0, last);
 }
 
-void drawLeaderboard(Leaderboard *lb) {
-    if (!lb || !lb->isVisible) return;
-   
-    float screenWidth = (float)SCREEN_WIDTH;
-    float screenHeight = (float)SCREEN_HEIGHT;
+bool leaderboardBack(void) {
+    return IsKeyPressed(KEY_ESCAPE) || uiClicked(back);
+}
 
-    drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, lb->animTimer);
-    
-
-    float panelAnim = clampFloat(lb->animTimer / 0.5f, 0.0f, 1.0f);
-    float easedPanelAnim = easeOutQuad(panelAnim);
-    
-    int globalAlpha = (int)(255 * easedPanelAnim);
-    float yOffset = (1.0f - easedPanelAnim) * 50.0f;
-
-    Rectangle panelRec = {
-        (screenWidth - P_WIDTH) * 0.5f,
-        (screenHeight - P_HEIGHT) * 0.5f + yOffset,
-        P_WIDTH,
-        P_HEIGHT
-    };
-
-
-    Color panelBg = COLOR_BG_GLASS;
-    panelBg.a = (unsigned char)((panelBg.a * globalAlpha) / 255);
-    DrawRectangleRounded(panelRec, 0.05f, 16, panelBg);
-
-
-    Color borderCol = COLOR_PANEL_BORDER;
-    borderCol.a = (unsigned char)((borderCol.a * globalAlpha) / 255);
-    DrawRectangleRoundedLines(panelRec, 0.2f, 16, borderCol);
-    
-    Color glowCol = COLOR_CYAN_GLOW;
-    glowCol.a = (unsigned char)((glowCol.a * globalAlpha) / 255);
-    drawNeonGlow(panelRec, glowCol, 4);
-
-
-    float currentY = panelRec.y + 30.0f;
-    
-    const char *title = "LEADERBOARD";
-    int titleSize = 40;
-    float titleWidth = (float)MeasureText(title, titleSize);
-    
-    Color titleColor = COLOR_TEXT_HEADER;
-    titleColor.a = (unsigned char)globalAlpha;
-    DrawText(title, (int)(panelRec.x + (panelRec.width - titleWidth) * 0.5f), (int)currentY, titleSize, titleColor);
-    
-
-    currentY += 50.0f;
-    Color mutedColor = COLOR_TEXT_MUTED;
-    mutedColor.a = (unsigned char)globalAlpha;
-    DrawText("TOP OPERATIVES", (int)(panelRec.x + panelRec.width * 0.5f - MeasureText("TOP OPERATIVES", 20) * 0.5f), (int)currentY, 20, mutedColor);
-    
-    currentY += 30.0f;
-    Color lineCol = COLOR_PURPLE_GLOW;
-    lineCol.a = (unsigned char)globalAlpha;
-    DrawLineEx((Vector2){panelRec.x + 40, currentY}, (Vector2){panelRec.x + panelRec.width - 40, currentY}, 2.0f, lineCol);
-
-
-    currentY += 15.0f;
-    DrawText("RANK", (int)(panelRec.x + 60), (int)currentY, 20, mutedColor);
-    DrawText("OPERATIVE", (int)(panelRec.x + 180), (int)currentY, 20, mutedColor);
-    DrawText("SCORE", (int)(panelRec.x + panelRec.width - 150), (int)currentY, 20, mutedColor);
-
-    currentY += 30.0f;
-
-
-    float listHeight = LIST_HEIGHT;
-    Rectangle listRec = { panelRec.x + 20, currentY, panelRec.width - 40, listHeight };
-    
-    BeginScissorMode((int)listRec.x, (int)listRec.y, (int)listRec.width, (int)listRec.height);
-
-    Vector2 mousePos = GetMousePosition();
-
-    for (int i = 0; i < lb->count; i++) {
-
-        float rowDelay = 0.3f + (fminf((float)i, 9.0f) * 0.05f);
-        float rowAnim = clampFloat((lb->animTimer - rowDelay) / 0.4f, 0.0f, 1.0f);
-        float easedRowAnim = easeOutQuad(rowAnim);
-        
-        if (easedRowAnim <= 0.0f) continue;
-
-        float rowY = currentY + (i * (ROW_HEIGHT + ROW_SPACING)) - lb->scroll;
-        
-
-        if (rowY + ROW_HEIGHT < listRec.y) continue;
-        if (rowY > listRec.y + listRec.height) break;
-
-        Rectangle rowRec = { panelRec.x + 40, rowY, panelRec.width - 80, ROW_HEIGHT };
-
-
-        bool isHovered = CheckCollisionPointRec(mousePos, rowRec) && CheckCollisionPointRec(mousePos, listRec);
-        
-        float rowAlpha = globalAlpha * easedRowAnim / 255.0f;
-
-
-        if (isHovered) {
-            Color hoverCol = COLOR_ROW_HOVER;
-            hoverCol.a = (unsigned char)(hoverCol.a * rowAlpha);
-            DrawRectangleRounded(rowRec, 0.2f, 8, hoverCol);
-            
-            Color hoverBorder = COLOR_CYAN_GLOW;
-            hoverBorder.a = (unsigned char)(100 * rowAlpha);
-            DrawRectangleRoundedLines(rowRec, 0.2f, 8, hoverBorder);
-        }
-
-
-        Color rankColor = COLOR_CYAN_GLOW;
-        if (i == 0) rankColor = COLOR_GOLD;
-        else if (i == 1) rankColor = COLOR_SILVER;
-        else if (i == 2) rankColor = COLOR_BRONZE;
-        
-        rankColor.a = (unsigned char)(rankColor.a * rowAlpha);
-
-        Color rowTextColor = COLOR_TEXT_HEADER;
-        rowTextColor.a = (unsigned char)(rowTextColor.a * rowAlpha);
-
-
-        char rankStr[16];
-        snprintf(rankStr, sizeof(rankStr), "#%d", i + 1);
-        DrawText(rankStr, (int)(rowRec.x + 20), (int)(rowRec.y + 12), 20, rankColor);
-
-
-        DrawText(lb->entries[i].name, (int)(rowRec.x + 140), (int)(rowRec.y + 12), 20, rowTextColor);
-
-
-        char scoreStr[32];
-        snprintf(scoreStr, sizeof(scoreStr), "%08d", lb->entries[i].score);
-        int scoreWidth = MeasureText(scoreStr, 20);
-        DrawText(scoreStr, (int)(rowRec.x + rowRec.width - scoreWidth - 20), (int)(rowRec.y + 12), 20, rowTextColor);
+void drawLeaderboard(const Game *game) {
+    const Leaderboard *lb = &game->leaderboard;
+    uiBackdrop(game, (float)GetTime());
+    uiSurface((Rectangle){310,75,880,744});
+    uiLabel(game, "ASTER CONVOY   /   PILOT ARCHIVE", 372, 119, 20, UI_ICE);
+    uiTitle(game, "Flight records", 368, 152, 60);
+    uiLabel(game, "Rank", 372, 250, 22, UI_MUTED);
+    uiLabel(game, "Callsign", 514, 250, 22, UI_MUTED);
+    uiLabel(game, "Score", 990, 250, 22, UI_MUTED);
+    for (int row = 0; row < PAGE_SIZE; ++row) {
+        int i = lb->page * PAGE_SIZE + row;
+        if (i >= lb->count) break;
+        float y = 303 + 49 * row;
+        DrawRectangle(372, (int)y - 9, 752, 1, (Color){56,73,87,255});
+        uiLabel(game, TextFormat("%02d", i + 1), 372, y, 24, i == 0 ? UI_AMBER : UI_MUTED);
+        uiLabel(game, lb->entries[i].name, 514, y, 24, UI_PAPER);
+        uiLabel(game, TextFormat("%d", lb->entries[i].score), 990, y, 24, UI_PAPER);
     }
-
-    EndScissorMode();
-
-    if (lb->count == 0) {
-        DrawText(
-                 "   Such Emptiness...",
-                 (int)(panelRec.x + panelRec.width / 2 - 230.0f), (int)currentY, 40,
-                 COLOR_TEXT_MUTED
-                 );
-    }
-    
-    float contentHeight = lb->count * (ROW_HEIGHT + ROW_SPACING) - ROW_SPACING;
-    float maxScroll = (contentHeight > listRec.height) ? (contentHeight - listRec.height) : 0.0f;
-    drawScrollbar(listRec, lb->scroll, maxScroll, contentHeight);
+    if (!lb->count) uiLabel(game, "Complete a scoring flight to enter the archive.", 372, 333, 25, UI_PAPER);
+    uiButton(game, back, "Main menu", CheckCollisionPointRec(GetMousePosition(), back));
+    if (lb->page) uiButton(game, previous, "Previous", CheckCollisionPointRec(GetMousePosition(), previous));
+    if ((lb->page + 1) * PAGE_SIZE < lb->count) uiButton(game, next, "Next", CheckCollisionPointRec(GetMousePosition(), next));
 }
