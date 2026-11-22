@@ -31,7 +31,7 @@ void uiLabel(const Game *game, const char *text, float x, float y, float size, C
 }
 
 void uiTitle(const Game *game, const char *text, float x, float y, float size) {
-    DrawTextEx(game->font, text, (Vector2){roundf(x),roundf(y)}, size, 1, UI_PAPER);
+    DrawTextEx(game->bodyFont, text, (Vector2){roundf(x),roundf(y)}, size, 0, UI_PAPER);
 }
 
 void uiButton(const Game *game, Rectangle bounds, const char *label, bool selected) {

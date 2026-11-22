@@ -3,6 +3,8 @@
 
 #include "core.h"
 
+bool nameEntryLaunch(void);
+bool nameEntryBack(void);
 void updateNameEntry(Game *game);
 void drawNameEntry(Game *game);
 

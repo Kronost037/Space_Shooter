@@ -13,7 +13,6 @@ static void drawPause(const Game *game) {
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.63f));
     uiSurface((Rectangle){490, 310, 520, 250});
     uiTitle(game, "Flight paused", 527, 328, 55);
-    uiLabel(game, "Flight time is suspended.", 530, 414, 24, UI_MUTED);
     uiButton(game, resumeButton, "Resume", CheckCollisionPointRec(GetMousePosition(), resumeButton));
     uiButton(game, leaveButton, "Abandon run", CheckCollisionPointRec(GetMousePosition(), leaveButton));
 }
