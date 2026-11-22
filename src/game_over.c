@@ -23,7 +23,7 @@ static Rectangle getButtonRect(Rectangle panel, int index) {
 }
 
 void updateGameOver(Game *game) {
-    Rectangle panel = { ((float)GetScreenWidth() - 760.0f) * 0.5f, ((float)GetScreenHeight() - 400.0f) * 0.5f, 760.0f, 400.0f };
+    Rectangle panel = { ((float)SCREEN_WIDTH - 760.0f) * 0.5f, ((float)SCREEN_HEIGHT - 400.0f) * 0.5f, 760.0f, 400.0f };
     Rectangle playAgain = getButtonRect(panel, 0);
     Rectangle mainMenu = getButtonRect(panel, 1);
     Vector2 mouse = GetMousePosition();
@@ -50,7 +50,6 @@ void updateGameOver(Game *game) {
     
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE)) {
         PlaySound(game->menu->click_sfx);
-        DisableCursor();
         game->currentState = STATE_GAME;
         resetRun(game);
         prevHoverPlay = prevHoverMenu = false;
@@ -59,21 +58,21 @@ void updateGameOver(Game *game) {
     if (IsKeyPressed(KEY_ESCAPE)) {
         PlaySound(game->menu->click_sfx);
         game->currentState = STATE_MENU;
-        EnableCursor();
+        ShowCursor();
         prevHoverPlay = prevHoverMenu = false;
     }
 }
 
 void drawGameOver(Game *game) {
     float anim = (float)GetTime();
-    drawBackground(GetScreenWidth(), GetScreenHeight(), anim);
+    drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, anim);
 
-    Rectangle panel = { ((float)GetScreenWidth() - 760.0f) * 0.5f, ((float)GetScreenHeight() - 400.0f) * 0.5f, 760.0f, 400.0f };
+    Rectangle panel = { ((float)SCREEN_WIDTH - 760.0f) * 0.5f, ((float)SCREEN_HEIGHT - 400.0f) * 0.5f, 760.0f, 400.0f };
     DrawRectangleRounded(panel, 0.06f, 18, (Color){ 10, 15, 30, 220 });
     DrawRectangleRoundedLines(panel, 0.16f, 18, (Color){ 180, 0, 255, 170 });
 
     Font font = game->font;
-    const char *title = "GAME OVER";
+    const char *title = game->missionCleared ? "SECTOR CLEARED" : "SHIP LOST";
     Vector2 titleSize = MeasureTextEx(font, title, 42.0f, 1.0f);
     DrawTextEx(font, title, (Vector2){ panel.x + (panel.width - titleSize.x) * 0.5f, panel.y + 42.0f }, 42.0f, 1.0f, (Color){ 220, 240, 255, 255 });
 
@@ -82,9 +81,25 @@ void drawGameOver(Game *game) {
     DrawTextEx(font, name, (Vector2){ panel.x + (panel.width - nameSize.x) * 0.5f, panel.y + 140.0f }, 34.0f, 1.0f, (Color){ 0, 255, 255, 255 });
     
     char scoreBuf[64];
-    snprintf(scoreBuf, sizeof(scoreBuf), "SCORE  %d", game->enemiesKilled);
+    snprintf(scoreBuf, sizeof(scoreBuf), "SCORE  %d", game->score);
     Vector2 scoreSize = MeasureTextEx(font, scoreBuf, 28.0f, 1.0f);
     DrawTextEx(font, scoreBuf, (Vector2){ panel.x + (panel.width - scoreSize.x) * 0.5f, panel.y + 200.0f }, 28.0f, 1.0f, (Color){ 220, 240, 255, 255 });
+
+    const char *summary = TextFormat("%d SCOUTS  /  %d WARDENS  /  %d:%02d",
+                                     game->scoutKills, game->wardensCleared,
+                                     (int)game->elapsedTime / 60, (int)game->elapsedTime % 60);
+    int summaryX = (SCREEN_WIDTH - MeasureText(summary, 17)) / 2;
+    DrawText(summary, summaryX, (int)panel.y + 254, 17, (Color){161, 181, 215, 255});
+
+    if (!game->missionCleared && game->damageCause) {
+        DrawText(game->damageCause, (SCREEN_WIDTH - MeasureText(game->damageCause, 18)) / 2,
+                 (int)panel.y + 278, 18, (Color){255,151,150,255});
+    }
+    if (game->missionCleared && game->clearBonus > 0) {
+        const char *bonus = TextFormat("QUICK CLEAR  +%d", game->clearBonus);
+        DrawText(bonus, (SCREEN_WIDTH - MeasureText(bonus, 16)) / 2, (int)panel.y + 280,
+                 16, (Color){96, 222, 255, 255});
+    }
 
     // Render Button Layout Boundaries
     Rectangle playAgain = getButtonRect(panel, 0);

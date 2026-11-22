@@ -57,11 +57,11 @@ void updateNameEntry(Game *game) {
 
 void drawNameEntry(Game *game) {
     float anim = (float)GetTime();
-    drawBackground(GetScreenWidth(), GetScreenHeight(), anim);
+    drawBackground(SCREEN_WIDTH, SCREEN_HEIGHT, anim);
 
     Rectangle panel = {
-        ((float)GetScreenWidth() - 760.0f) * 0.5f,
-        ((float)GetScreenHeight() - 420.0f) * 0.5f,
+        ((float)SCREEN_WIDTH - 760.0f) * 0.5f,
+        ((float)SCREEN_HEIGHT - 420.0f) * 0.5f,
         760.0f, 420.0f
     };
 

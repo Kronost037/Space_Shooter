@@ -5,46 +5,27 @@
 #include "leaderboard.h"
 
 #include <raylib.h>
+#include <raymath.h>
 #include <stdlib.h>
-
-#include <math.h>
-#include "raymath.h"
 
 #define SCREEN_WIDTH 1500
 #define SCREEN_HEIGHT 900
-#define PANEL_WIDTH 320
-#define PLAYER_SCALE 0.03f
-#define ENEMY_1_SCALE 0.3f
-
-
 #define MAX_ELITES 4
-#define ELITE_ENEMY_SCALE (ENEMY_1_SCALE * 2.50f)
-#define ELITE_ENEMY_LIVES 15
-#define ELITE_BEAM_COOLDOWN 2.10f
-#define ENEMY_SPEED_MULTIPLIER_START 0.75f
-#define ENEMY_SPEED_MULTIPLIER_STEP 0.10f
-#define ENEMY_SPEED_MULTIPLIER_MAX 1.50f
-
-
-#define MAX_BULLETS 40
-#define MAX_ENEMIES 20
+#define MAX_ENEMIES 24
 #define MAX_LIVES 3
-
+#define MAX_SHOTS 192
+#define MAX_PARTICLES 160
 #define WORLD_COLS 4
 #define WORLD_ROWS 4
-#define WORLD_SECTOR_WIDTH 2200
-#define WORLD_SECTOR_HEIGHT 2200
-
-typedef struct S_world {
-    int cols;
-    int rows;
-    int sectorWidth;
-    int sectorHeight;
-    int width;
-    int height;
-    int playerSectorX;
-    int playerSectorY;
-} World;
+#define WORLD_SECTOR_WIDTH 1450
+#define WORLD_SECTOR_HEIGHT 1200
+#define WORLD_WIDTH (WORLD_COLS * WORLD_SECTOR_WIDTH)
+#define WORLD_HEIGHT (WORLD_ROWS * WORLD_SECTOR_HEIGHT)
+#define WARDEN_HP 14
+#define CARRIER_HP 32
+#define PULSE_RECHARGE 15.0f
+#define PULSE_RADIUS 300.0f
+#define SCOUT_REWARDS_PER_STAGE 12
 
 typedef enum {
     STATE_MENU = 0,
@@ -53,76 +34,102 @@ typedef enum {
     STATE_GAME_OVER,
     STATE_LEADERBOARD,
     STATE_SETTING,
+    STATE_PAUSE,
 } State;
 
-typedef struct S_gamesound {
-    Sound laser_sound;
-} GameSound;
+typedef enum { ATTACK_FAN, ATTACK_LANCE, ATTACK_RING, ATTACK_LANES } Attack;
+typedef enum { ELITE_IDLE, ELITE_WARNING, ELITE_FIRING, ELITE_RECOVERY } ElitePhase;
 
-typedef struct S_textures {
-    Texture2D Player;
-    Texture2D Enemy_1;
-} Entity_Texture;
+typedef struct {
+    Vector2 position;
+    Vector2 previous;
+    Vector2 velocity;
+    float radius;
+    float life;
+    int owner;                 // -1 for pilot shots, otherwise the elite's index.
+} Shot;
 
-typedef struct S_projectile {
-    bool active;
-    Rectangle dim;
-    float projectile_speed;
-    Vector2 projectile_dir;
-    Color projectile_color;
-} Projectile;
+typedef struct {
+    Vector2 position;
+    Vector2 velocity;
+    float life;
+    float totalLife;
+    float size;
+    Color color;
+} Particle;
 
-typedef struct S_entity {
+typedef struct {
+    Vector2 position;
+    Vector2 previous;
+    Vector2 heading;
+    float speed;
+    float hitFlash;
     int lives;
-    Vector2 entity_pos;
-    float entity_speed;
-    Vector2 entity_dir;
+} Ship;
 
-    float last_seen;
-    
-    Projectile entity_bullets[MAX_BULLETS];
-    Vector2 entity_shooting_dir;
-    float entity_shooting_cooldown;
-
-    int sectorX;
-    int sectorY;
-} Entity;
+typedef struct {
+    Ship ship;
+    ElitePhase phase;
+    Attack attack;
+    float time;
+    float duration;
+    float aim;
+    int cycle;
+    bool unlocked;
+} Elite;
 
 struct S_game {
     bool quit;
-
-    World world;
-    Camera2D camera;
-    
-    GameSound gamesound;
-    Entity_Texture entity_texture;
-    
-    bool showPanel;
-    int gameWidth;
-    int gameHeight;
     State currentState;
-    Font font;
-    float timer;
-    float elapsedTime;
-    
     Menu *menu;
-    
-    Entity player;
-    char playerName[32];
-    float playerHitCooldown;
-
-    Entity enemies[MAX_ENEMIES];
-    Entity elites[MAX_ELITES];
-
-    float enemySpeedMultiplier;
-
-    int enemiesKilled;
+    Font font;
     Leaderboard leaderboard;
     bool scoreSubmitted;
+
+    Texture2D sky;
+    Vector2 velocity, thrust, gunAim, payoutPosition;
+    const char *damageCause;
+    Texture2D pilotTexture;
+    Texture2D scoutTexture;
+    Texture2D wardenTexture;
+    Texture2D carrierTexture;
+    Sound laserSound;
+    Sound warningSound;
+    Sound damageSound;
+    Sound clearSound;
+    Sound pulseSound;
+
+    Camera2D camera;
+    Vector2 previousCameraTarget;
+    Ship player;
+    Ship scouts[MAX_ENEMIES];
+    Elite elites[MAX_ELITES];
+    Shot shots[MAX_SHOTS];
+    Particle particles[MAX_PARTICLES];
+    char playerName[32];
+    float accumulator;
+    float outcomeTime;
+    float elapsedTime;
+    float fireCooldown;
+    float spawnTimer;
+    float playerHitCooldown;
+    float pulseCharge;
+    float pulseAnimation;
+    float scoreToast;
+    Vector2 pulseOrigin;
+    int score;
+    int lastAward;
+    int scoutKills;
+    int scoutRewards;
+    int clearBonus;
+    int wardensCleared;
+    bool pulseQueued;
+    bool missionCleared;
+    bool showRadar;
 };
 
-
 void initializeGame(Game *game);
+void unloadGameAssets(Game *game);
 void runGamePhysics(Game *game);
 void drawGame(Game *game);
 void resetRun(Game *game);

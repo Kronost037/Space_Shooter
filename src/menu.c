@@ -169,11 +169,6 @@ static void startTransition(Menu *menu, MenuAction action) {
     PlaySound(menu->click_sfx);
 }
 
-void refreshLayout(Game *game) {
-    game->gameWidth = SCREEN_WIDTH - (game->showPanel ? PANEL_WIDTH : 0);
-    game->gameHeight = SCREEN_HEIGHT;
-}
-
 void updateMenuLayout(Game *game) {
     Rectangle menuPanel = {
         SCREEN_WIDTH * 0.5f - 330.0f,
@@ -335,8 +330,6 @@ static void drawTitleGlowSweep(Game *game, const char *text, Vector2 pos, float 
 void runMenuPhysics(Game *game) {
     Menu *menu = game->menu;
 
-    UpdateMusicStream(menu->bg_song);
-
     float dt = GetFrameTime();
     menu->timer += dt;
     if (menu->timer > 1000.0f) {
@@ -393,7 +386,8 @@ void runMenuPhysics(Game *game) {
     }
 
     if (menu->phase == MENU_PHASE_IDLE) {
-        if (startHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) ||
+            (startHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
             startTransition(menu, MENU_ACTION_START);
         } else if (exitHover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             startTransition(menu, MENU_ACTION_EXIT);

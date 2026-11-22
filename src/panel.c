@@ -1,180 +1,163 @@
 #include "panel.h"
 
-#include <stdio.h>
-#include <math.h>
+#define CYAN ((Color){96, 222, 255, 255})
+#define MUTED ((Color){161, 181, 215, 255})
+#define WARDEN_ACCENT ((Color){207, 144, 255, 255})
+#define AMBER ((Color){255, 194, 98, 255})
 
-#define RADAR_DETECTION_TIME 5.0f
-
-static void drawGlowText(Font font, const char *text, Vector2 pos, float size, float spacing, Color textColor, Color glowColor) {
-    for (int i = 3; i >= 1; i--) {
-        Vector2 p = { pos.x + (float)i, pos.y + (float)i };
-        Color c = glowColor;
-        c.a = (unsigned char)(glowColor.a / (i + 1));
-        DrawTextEx(font, text, p, size, spacing, c);
-    }
-    DrawTextEx(font, text, pos, size, spacing, textColor);
+static void card(Rectangle rect, Color accent) {
+    DrawRectangleRounded(rect, 0.12f, 8, (Color){8, 13, 28, 230});
+    DrawRectangleRoundedLines(rect, 0.12f, 8, Fade(accent, 0.36f));
 }
 
-static void drawSoftPanel(Rectangle r, Color fill, Color border) {
-    DrawRectangleRec(r, fill);
-    DrawRectangleLinesEx(r, 1.5f, border);
-    DrawRectangleRec((Rectangle){ r.x + 1.0f, r.y + 1.0f, r.width - 2.0f, 1.0f }, (Color){ 255, 255, 255, 18 });
+static void drawHudText(const Game *game, const char *label, float x, float y, float size, Color color) {
+    DrawTextEx(game->font, label, (Vector2){x, y}, size, 0.8f, color);
 }
 
-static void drawSeparator(float x, float y, float w) {
-    DrawRectangleRec((Rectangle){ x, y, w, 1.0f }, (Color){ 70, 145, 220, 110 });
-    DrawRectangleRec((Rectangle){ x, y + 3.0f, w * 0.78f, 1.0f }, (Color){ 130, 70, 200, 70 });
+static void centered(const Game *game, const char *label, float y, float size, Color color) {
+    float width = MeasureTextEx(game->font, label, size, 0.8f).x;
+    drawHudText(game, label, (SCREEN_WIDTH - width) * 0.5f, y, size, color);
 }
 
-static void drawSmallLabel(Font font, const char *text, Vector2 pos) {
-    DrawTextEx(font, text, pos, 16.0f, 1.0f, (Color){ 180, 190, 205, 255 });
+static void bar(Rectangle rect, float value, Color accent) {
+    DrawRectangleRec(rect, (Color){41, 49, 76, 255});
+    rect.width *= Clamp(value, 0.0f, 1.0f);
+    DrawRectangleRec(rect, accent);
 }
 
-static void drawMetricCard(Game *game, Rectangle r, const char *label, const char *value, Color accent) {
-    drawSoftPanel(r, (Color){ 14, 18, 27, 255 }, (Color){ 90, 110, 135, 80 });
-    DrawRectangleRec((Rectangle){ r.x + 1.0f, r.y + 1.0f, r.width - 2.0f, 3.0f }, accent);
-    DrawRectangleRec((Rectangle){ r.x + 1.0f, r.y + 4.0f, r.width - 2.0f, 1.0f }, (Color){ 255, 255, 255, 18 });
-
-    drawSmallLabel(game->font, label, (Vector2){ r.x + 14.0f, r.y + 12.0f });
-    drawGlowText(game->font, value, (Vector2){ r.x + 14.0f, r.y + 34.0f }, 24.0f, 1.0f, (Color){ 235, 242, 248, 255 }, accent);
-}
-
-static void drawHealthBar(Game *game, Rectangle r) {
-    float ratio = 0.0f;
-    if (MAX_LIVES > 0) {
-        ratio = (float)game->player.lives / (float)MAX_LIVES;
-    }
-    ratio = fmaxf(0.0f, fminf(1.0f, ratio));
-
-    drawSoftPanel(r, (Color){ 13, 16, 24, 255 }, (Color){ 90, 110, 135, 80 });
-
-    DrawRectangleRec((Rectangle){ r.x + 2.0f, r.y + 2.0f, (r.width - 4.0f) * ratio, r.height - 4.0f }, (Color){ 40, 180, 255, 220 });
-    DrawRectangleRec((Rectangle){ r.x + 2.0f, r.y + 2.0f, (r.width - 4.0f) * ratio, 3.0f }, (Color){ 230, 250, 255, 70 });
-
-    for (int i = 1; i < MAX_LIVES; i++) {
-        float x = r.x + 2.0f + ((r.width - 4.0f) / (float)MAX_LIVES) * (float)i;
-        DrawRectangleRec((Rectangle){ x - 1.0f, r.y + 2.0f, 2.0f, r.height - 4.0f }, (Color){ 75, 92, 110, 120 });
-    }
-
-    DrawRectangleLinesEx(r, 1.5f, (Color){ 100, 125, 150, 90 });
-}
-
-static void drawMiniMap(Game *game, Rectangle area) {
-    drawSoftPanel(area, (Color){ 12, 14, 20, 255 }, (Color){ 100, 140, 175, 90 });
-
-    Rectangle inner = {
-        area.x + 8.0f,
-        area.y + 8.0f,
-        area.width - 16.0f,
-        area.height - 16.0f
+static Vector2 mapPoint(Rectangle area, Vector2 position) {
+    return (Vector2){
+        area.x + position.x / WORLD_WIDTH * area.width,
+        area.y + position.y / WORLD_HEIGHT * area.height
     };
+}
 
-    DrawRectangleRec(inner, (Color){ 8, 10, 15, 255 });
-    DrawRectangleLinesEx(inner, 1.0f, (Color){ 75, 95, 115, 80 });
+static void drawRadar(const Game *game, Camera2D camera) {
+    Rectangle panel = { SCREEN_WIDTH - 225, 22, 203, 181 };
+    Rectangle grid = { panel.x + 13, panel.y + 36, panel.width - 26, panel.height - 51 };
+    card(panel, CYAN);
+    drawHudText(game, "SECTOR RADAR", (int)panel.x + 13, (int)panel.y + 10, 18, MUTED);
+    DrawRectangleLinesEx(grid, 1.0f, Fade(MUTED, 0.40f));
 
-    int cols = game->world.cols;
-    int rows = game->world.rows;
+    for (int x = 1; x < WORLD_COLS; ++x) {
+        float line = grid.x + grid.width * (float)x / WORLD_COLS;
+        DrawLineV((Vector2){line, grid.y}, (Vector2){line, grid.y + grid.height}, Fade(MUTED, 0.22f));
+    }
+    for (int y = 1; y < WORLD_ROWS; ++y) {
+        float line = grid.y + grid.height * (float)y / WORLD_ROWS;
+        DrawLineV((Vector2){grid.x, line}, (Vector2){grid.x + grid.width, line}, Fade(MUTED, 0.22f));
+    }
 
-    float cellW = inner.width / (float)cols;
-    float cellH = inner.height / (float)rows;
+    Vector2 topLeft = mapPoint(grid, GetScreenToWorld2D((Vector2){0, 0}, camera));
+    Vector2 bottomRight = mapPoint(grid, GetScreenToWorld2D((Vector2){SCREEN_WIDTH, SCREEN_HEIGHT}, camera));
+    topLeft = Vector2Clamp(topLeft, (Vector2){grid.x, grid.y}, (Vector2){grid.x + grid.width, grid.y + grid.height});
+    bottomRight = Vector2Clamp(bottomRight, (Vector2){grid.x, grid.y}, (Vector2){grid.x + grid.width, grid.y + grid.height});
+    DrawRectangleLinesEx((Rectangle){topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y},
+                         1.0f, Fade(CYAN, 0.48f));
 
-    int playerSX = (int)(game->player.entity_pos.x / (float)game->world.sectorWidth);
-    int playerSY = (int)(game->player.entity_pos.y / (float)game->world.sectorHeight);
+    for (int i = 0; i < MAX_ENEMIES; ++i) {
+        const Ship *scout = &game->scouts[i];
+        if (!scout->lives || Vector2Distance(scout->position, game->player.position) > 1050.0f) continue;
+        DrawCircleV(mapPoint(grid, scout->position), 2.0f, (Color){255, 94, 113, 255});
+    }
+    for (int i = 0; i < MAX_ELITES; ++i) {
+        const Elite *elite = &game->elites[i];
+        if (!elite->unlocked || !elite->ship.lives) continue;
+        DrawPoly(mapPoint(grid, elite->ship.position), 4, 5.0f, 0.0f,
+                 i == MAX_ELITES - 1 ? AMBER : WARDEN_ACCENT);
+    }
+    DrawCircleV(mapPoint(grid, game->player.position), 4.0f, CYAN);
+}
 
-    if (playerSX < 0) playerSX = 0;
-    if (playerSY < 0) playerSY = 0;
-    if (playerSX >= cols) playerSX = cols - 1;
-    if (playerSY >= rows) playerSY = rows - 1;
-
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-            Rectangle cell = {
-                inner.x + (float)x * cellW,
-                inner.y + (float)y * cellH,
-                cellW,
-                cellH
-            };
-
-            bool playerCell = (x == playerSX && y == playerSY);
-
-            DrawRectangleRec(cell, playerCell ? (Color){ 18, 56, 82, 150 } : (Color){ 11, 14, 20, 255 });
-            DrawRectangleLinesEx(cell, 1.0f, playerCell ? (Color){ 65, 210, 255, 180 } : (Color){ 55, 75, 95, 65 });
+static int nearestTarget(const Game *game) {
+    int best = -1;
+    float bestDistance = INFINITY;
+    for (int i = 0; i < MAX_ELITES; ++i) {
+        const Elite *elite = &game->elites[i];
+        if (!elite->unlocked || elite->ship.lives <= 0) continue;
+        float distance = Vector2Distance(game->player.position, elite->ship.position);
+        if (distance < bestDistance) {
+            best = i;
+            bestDistance = distance;
         }
     }
-
-
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (game->enemies[i].lives <= 0) continue;
-
-        float age = game->elapsedTime - game->enemies[i].last_seen;
-
-        if(age > RADAR_DETECTION_TIME) continue; 
-        
-        float px = inner.x + (game->enemies[i].entity_pos.x / (float)game->world.width) * inner.width;
-        float py = inner.y + (game->enemies[i].entity_pos.y / (float)game->world.height) * inner.height;
-
-        DrawCircleV((Vector2){ px, py }, 2.3f, (Color){ 255, 95, 120, 255 });
-    }
-
-    float playerX = inner.x + ((game->player.entity_pos.x + 0.5f) / (float)game->world.width) * inner.width;
-    float playerY = inner.y + ((game->player.entity_pos.y + 0.5f) / (float)game->world.height) * inner.height;
-
-    DrawCircleV((Vector2){ playerX, playerY }, 4.2f, (Color){ 45, 220, 255, 255 });
-    DrawCircleLines((int)playerX, (int)playerY, 7.5f, (Color){ 140, 240, 255, 160 });
+    return best;
 }
 
-void drawPanel(Game *game) {
-    if (!game->showPanel) return;
+static void drawObjective(const Game *game, Camera2D camera) {
+    int index = nearestTarget(game);
+    if (index < 0) return;
+    const Elite *elite = &game->elites[index];
+    bool carrier = index == MAX_ELITES - 1;
+    Color accent = carrier ? AMBER : WARDEN_ACCENT;
+    Vector2 screen = GetWorldToScreen2D(elite->ship.position, camera);
+    bool ahead = screen.x > 86 && screen.x < SCREEN_WIDTH - 86 &&
+                 screen.y > 92 && screen.y < SCREEN_HEIGHT - 92;
+    if (ahead) {
+        centered(game, carrier ? "COMMAND CARRIER" : "SECTOR WARDEN", 21, 24, accent);
+        bar((Rectangle){SCREEN_WIDTH * 0.5f - 155.0f, 51, 310, 6},
+            (float)elite->ship.lives / (float)(carrier ? CARRIER_HP : WARDEN_HP), accent);
+        if (elite->phase == ELITE_WARNING) {
+            const char *attack = elite->attack == ATTACK_LANES ? "LANE BATTERY" : elite->attack == ATTACK_LANCE ? (elite->time > 0.48f ? "TRACKING" : "LANCE LOCKED") :
+                                 elite->attack == ATTACK_RING ? "RING BURST" : "FAN VOLLEY";
+            centered(game, attack, 61, 19, AMBER);
+        } else if (elite->phase == ELITE_RECOVERY) {
+            centered(game, "CORE EXPOSED", 61, 19, CYAN);
+        } else if (carrier) {
+            centered(game, "SHIELDED", 61, 19, MUTED);
+        }
+    } else {
+        Vector2 center = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+        Vector2 delta = Vector2Subtract(screen, center);
+        const float halfWidth = SCREEN_WIDTH * 0.5f - 96.0f;
+        const float halfHeight = SCREEN_HEIGHT * 0.5f - 102.0f;
+        float edge = 1.0f / fmaxf(fabsf(delta.x) / halfWidth, fabsf(delta.y) / halfHeight);
+        Vector2 marker = Vector2Add(center, Vector2Scale(delta, edge));
+        // Reserve space around the top corners for status and radar.
+        if (marker.y < 222.0f && (marker.x < 270.0f || marker.x > SCREEN_WIDTH - 265.0f)) marker.y = 222.0f;
+        Vector2 arrow = Vector2Normalize(delta);
+        Vector2 wing = { -arrow.y, arrow.x };
+        DrawTriangle(Vector2Add(marker, Vector2Scale(arrow, 11.0f)),
+                     Vector2Subtract(Vector2Subtract(marker, Vector2Scale(arrow, 7.0f)), Vector2Scale(wing, 7.0f)),
+                     Vector2Add(Vector2Subtract(marker, Vector2Scale(arrow, 7.0f)), Vector2Scale(wing, 7.0f)),
+                     accent);
+        const char *label = carrier ? "CARRIER" : "WARDEN";
+        drawHudText(game, label, marker.x - MeasureTextEx(game->font, label, 17.0f, 0.8f).x * 0.5f, marker.y + 13.0f, 17.0f, accent);
+    }
+}
 
-    Rectangle panel = {
-        (float)game->gameWidth,
-        0.0f,
-        (float)PANEL_WIDTH,
-        (float)game->gameHeight
-    };
+void drawPanel(const Game *game, Camera2D camera) {
+    card((Rectangle){22, 22, 228, 120}, CYAN);
+    drawHudText(game, "HULL", 36, 33, 15, MUTED);
+    for (int i = 0; i < MAX_LIVES; ++i) {
+        DrawRectangleRounded((Rectangle){37.0f + (float)i * 24.0f, 56, 17, 7}, 0.7f, 6,
+                             i < game->player.lives ? CYAN : (Color){42, 52, 77, 255});
+    }
+    drawHudText(game, "SCORE", 133, 33, 15, MUTED);
+    drawHudText(game, TextFormat("%05d", game->score), 133, 48, 32, RAYWHITE);
+    drawHudText(game, TextFormat("SECTOR THREAT %d", 1 + game->wardensCleared), 36, 88, 15, MUTED);
+    drawHudText(game, TextFormat("SCOUT REWARDS  %d / %d", game->scoutRewards, SCOUT_REWARDS_PER_STAGE),
+             36, 110, 17, MUTED);
+    if (game->scoreToast > 0.0f) {
+        drawHudText(game, TextFormat("+%d", game->lastAward), GetWorldToScreen2D(game->payoutPosition, camera).x, GetWorldToScreen2D(game->payoutPosition, camera).y - 35, 20, Fade(CYAN, game->scoreToast / 0.85f));
+    }
 
-    DrawRectangleRec(panel, (Color){ 7, 9, 14, 255 });
-    DrawRectangleLinesEx(panel, 2.0f, (Color){ 85, 105, 130, 90 });
+    if (game->showRadar) drawRadar(game, camera);
+    drawObjective(game, camera);
 
-    drawGlowText(
-        game->font,
-        "SPACE SHOOTER",
-        (Vector2){ panel.x + 35.0f, 18.0f },
-        48.0f,
-        1.4f,
-        (Color){ 235, 242, 248, 255 },
-        (Color){ 80, 170, 255, 220 }
-    );
+    bool ready = game->pulseCharge >= PULSE_RECHARGE;
+    Rectangle pulse = {22, 150, 228, 54};
+    card(pulse, CYAN);
+    drawHudText(game, ready ? "SPACE  /  PULSE READY" :
+             TextFormat("PULSE  /  %.1fs", PULSE_RECHARGE - game->pulseCharge),
+             36, 161, 16, ready ? CYAN : MUTED);
+    bar((Rectangle){36, 187, 200, 4}, game->pulseCharge / PULSE_RECHARGE, CYAN);
 
-    drawSeparator(panel.x + 16.0f, 64.0f, panel.width - 32.0f);
-
-    Rectangle nameCard = { panel.x + 16.0f, 82.0f, panel.width - 32.0f, 65.0f };
-    char nameBuf[64];
-    snprintf(nameBuf, sizeof(nameBuf), "%s", game->playerName[0] ? game->playerName : "PLAYER");
-    drawMetricCard(game, nameCard, "OPERATIVE", nameBuf, (Color){ 0, 210, 255, 220 });
-
-    Rectangle scoreCard = { panel.x + 16.0f, 155.0f, panel.width - 32.0f, 65.0f };
-    char scoreBuf[32];
-    snprintf(scoreBuf, sizeof(scoreBuf), "%d", game->enemiesKilled);
-    drawMetricCard(game, scoreCard, "SCORE", scoreBuf, (Color){ 120, 90, 255, 220 });
-
-    Rectangle healthLabelRect = { panel.x + 16.0f, 230.0f, panel.width - 32.0f, 24.0f };
-    drawSmallLabel(game->font, "HEALTH", (Vector2){ healthLabelRect.x, healthLabelRect.y });
-
-    Rectangle healthBar = { panel.x + 16.0f, 248.0f, panel.width - 32.0f, 22.0f };
-    drawHealthBar(game, healthBar);
-
-    drawSmallLabel(game->font, "TACTICAL MAP", (Vector2){ panel.x + 16.0f, 288.0f });
-
-    Rectangle minimap = { panel.x + 16.0f, 314.0f, panel.width - 32.0f, 222.0f };
-    drawMiniMap(game, minimap);
-
-    drawSeparator(panel.x + 16.0f, 552.0f, panel.width - 32.0f);
-
-    Rectangle hintCard = { panel.x + 16.0f, 570.0f, panel.width - 32.0f, 114.0f };
-    drawSoftPanel(hintCard, (Color){ 12, 15, 22, 255 }, (Color){ 80, 100, 125, 70 });
-
-    DrawTextEx(game->font, "M to TOGGLE PANEL", (Vector2){ hintCard.x + 14.0f, hintCard.y + 14.0f }, 17.0f, 1.0f, (Color){ 180, 190, 205, 255 });
-    DrawTextEx(game->font, "WASD to SHOOT",     (Vector2){ hintCard.x + 14.0f, hintCard.y + 40.0f }, 17.0f, 1.0f, (Color){ 180, 190, 205, 255 });
-    DrawTextEx(game->font, "ARROW Keys to MOVE",    (Vector2){ hintCard.x + 14.0f, hintCard.y + 66.0f }, 17.0f, 1.0f, (Color){ 180, 190, 205, 255 });
+    const char *objective = game->wardensCleared < MAX_ELITES - 1 ?
+        TextFormat("WARDENS  %d / %d", game->wardensCleared, MAX_ELITES - 1) : "DESTROY THE CARRIER";
+    centered(game, objective, SCREEN_HEIGHT - 44, 21, game->wardensCleared < MAX_ELITES - 1 ? WARDEN_ACCENT : AMBER);
+    if (game->elapsedTime < 12.0f) {
+        centered(game, "ARROWS MOVE   /   WASD FIRE   /   M RADAR", SCREEN_HEIGHT - 71, 18,
+                 Fade(MUTED, Clamp((12.0f - game->elapsedTime) / 2.0f, 0.0f, 1.0f)));
+    }
 }
