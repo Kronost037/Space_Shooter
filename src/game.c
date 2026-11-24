@@ -409,6 +409,8 @@ static Texture2D loadShip(const char *path) {
 
 void initializeGame(Game *game) {
     *game = (Game){ .showRadar = true, .settings = DEFAULT_SETTINGS };
+    game->transportTexture = loadShip("src/Assets/Siege/mercy-six.png");
+    game->gateTexture = loadShip("src/Assets/Siege/jump-gate.png");
     game->sky = loadShip("src/Assets/Siege/deep-field.png");
     game->pilotTexture = loadShip("src/Assets/Siege/pilot.png");
     game->scoutTexture = loadShip("src/Assets/Siege/scout.png");
@@ -420,7 +422,7 @@ void initializeGame(Game *game) {
     game->clearSound = LoadSound("src/Assets/Siege/impact.wav");
     game->pulseSound = LoadSound("src/Assets/Siege/pulse.wav");
 
-    game->bodyFont = LoadFontEx("src/Assets/Siege/AtkinsonHyperlegible-Regular.ttf", 72, NULL, 0);
+    game->bodyFont = LoadFontEx("src/Assets/Siege/Barlow-Medium.ttf", 72, NULL, 0);
     GenTextureMipmaps(&game->bodyFont.texture);
     SetTextureFilter(game->bodyFont.texture, TEXTURE_FILTER_TRILINEAR);
     game->menu = malloc(sizeof *game->menu);
@@ -430,6 +432,8 @@ void initializeGame(Game *game) {
 }
 
 void shutdownGame(Game *game) {
+    UnloadTexture(game->transportTexture);
+    UnloadTexture(game->gateTexture);
     UnloadTexture(game->sky);
     UnloadTexture(game->pilotTexture);
     UnloadTexture(game->scoutTexture);

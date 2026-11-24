@@ -6,14 +6,14 @@ This is Kronost037/Space_Shooter, a C17/Raylib top-down arcade shooter. Raad mai
 
 - PR #11 introduced Sector Siege: separate movement and aim, sector art, Wardens and the Carrier, telegraphs, radar, and a rechargeable pulse.
 - PR #12 added the Aster convoy campaign, four difficulty profiles, timer/audio settings, window-resolution UI, per-world seeds, and real-window flight checks.
-- PR #13 simplified the menus and moved all UI text to Atkinson Hyperlegible.
+- PR #13 simplified the menus and unified the UI typography.
 - This change adds turn anticipation and settle animation, patrolling Wardens, a third survey beacon, a two-leg cargo escort, and four short cutscenes. Check its PR status before describing it as shipped.
 
 ## Design and story
 
 Fly escort for the Aster convoy. The convoy has one remaining jump, the Wardens jam the corridor, and a Command Carrier occupies the gate. The player locates the Wardens, clears the jamming ships, escorts the medical ship Mercy Six through a cargo stop, then clears the jump gate.
 
-The main menu should feel like an arcade title screen. Keep story in animated scenes and short radio lines during play. A menu interaction should be obvious from its label. Use one font family, high-contrast numerals and text at the minimum window size, and reserve amber for warnings and important actions. A single short objective and, when needed, one radio line are enough for the flight HUD. New spectacle should keep hostile telegraphs and the ship visible.
+The main menu should feel like an arcade title screen. Keep story in animated scenes and short radio lines during play. A menu interaction should be obvious from its label. Use Barlow Medium throughout, high-contrast numerals and text at the minimum window size, and reserve amber for warnings and important actions. A single short objective and, when needed, one radio line are enough for the flight HUD. New spectacle should keep hostile telegraphs and the ship visible.
 
 Expand levels when the activity changes. The current beacons teach motion, the Warden patterns teach dodging, the escort makes local control and pulse timing matter, and the Carrier tests those skills. Ideas worth prototyping are alternate beacon routes, optional cargo runs and patrols whose routes converge. Keep optional activities brief and reward taking a risk or completing an objective. Repeated rings and travel without a decision become padding.
 

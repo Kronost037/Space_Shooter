@@ -1,6 +1,7 @@
 #include "game.h"
 #include "leaderboard.h"
 #include "ui/widgets.h"
+#include "ui/display.h"
 
 #if defined(_WIN32)
     #include <direct.h>
@@ -186,11 +187,16 @@ void drawLeaderboard(const Game *game) {
     uiLabel(game, "Rank", 372, 250, 22, UI_MUTED);
     uiLabel(game, "Callsign", 514, 250, 22, UI_MUTED);
     uiLabel(game, "Score", 990, 250, 22, UI_MUTED);
+    Rectangle viewport = screenViewport();
+    float scale = viewport.width / SCREEN_WIDTH;
+    // Snap both boundaries in window space; a logical pixel can vanish after scaling.
+    float thickness = fmaxf(1, roundf(1.5f * scale)) / scale;
     for (int row = 0; row < PAGE_SIZE; ++row) {
         int i = lb->page * PAGE_SIZE + row;
         if (i >= lb->count) break;
         float y = 303 + 49 * row;
-        DrawRectangle(372, (int)y - 9, 752, 1, (Color){56,73,87,255});
+        float edge = (roundf(viewport.y + (y + 39) * scale) - viewport.y) / scale;
+        DrawRectangleRec((Rectangle){372, edge, 752, thickness}, (Color){98,120,135,255});
         uiLabel(game, TextFormat("%02d", i + 1), 372, y, 24, i == 0 ? UI_AMBER : UI_MUTED);
         uiLabel(game, lb->entries[i].name, 514, y, 24, UI_PAPER);
         uiLabel(game, TextFormat("%d", lb->entries[i].score), 990, y, 24, UI_PAPER);

@@ -90,25 +90,16 @@ bool missionWaypoint(const Game *game, Vector2 *position) {
     return true;
 }
 
-void drawTransport(Vector2 center, Vector2 heading, float scale) {
+void drawTransport(const Game *game, Vector2 center, Vector2 heading, float length, float thrust) {
     Vector2 side = {-heading.y, heading.x};
-    Color armor = {173, 194, 204, 255};
-    Color keel = {218, 226, 221, 255};
-    for (int i = -1; i <= 1; i += 2) {
-        Vector2 pod = Vector2Add(center, Vector2Scale(side, i * 15 * scale));
-        Vector2 tail = Vector2Subtract(pod, Vector2Scale(heading, 21 * scale));
-        DrawLineEx(tail, Vector2Add(pod, Vector2Scale(heading, 9 * scale)), 8 * scale, armor);
-        DrawLineEx(tail, Vector2Subtract(tail, Vector2Scale(heading, 9 * scale)), 4 * scale, beacon);
+    for (int engine = -1; engine <= 1; engine += 2) {
+        Vector2 nozzle = Vector2Add(Vector2Subtract(center, Vector2Scale(heading, length * 0.465f)),
+                                   Vector2Scale(side, engine * length * 0.042f));
+        Vector2 tip = Vector2Subtract(nozzle, Vector2Scale(heading, length * (0.01f + thrust * 0.08f)));
+        DrawLineEx(nozzle, tip, length * 0.022f, Fade(beacon, 0.32f));
+        DrawCircleGradient(nozzle, length * 0.035f, Fade(beacon, 0.65f), Fade(beacon, 0));
     }
-    Vector2 stern = Vector2Subtract(center, Vector2Scale(heading, 18 * scale));
-    Vector2 nose = Vector2Add(center, Vector2Scale(heading, 22 * scale));
-    DrawLineEx(stern, nose, 18 * scale, keel);
-    DrawCircleV(nose, 9 * scale, keel);
-    DrawLineEx(Vector2Add(center, Vector2Scale(heading, 13 * scale)), nose, 5 * scale, (Color){40,110,128,255});
-    DrawLineEx(Vector2Subtract(center, Vector2Scale(side, 6 * scale)),
-               Vector2Add(center, Vector2Scale(side, 6 * scale)), 3 * scale, DARKGREEN);
-    DrawLineEx(Vector2Subtract(center, Vector2Scale(heading, 6 * scale)),
-               Vector2Add(center, Vector2Scale(heading, 6 * scale)), 3 * scale, DARKGREEN);
+    drawShip(game->transportTexture, center, heading, length, WHITE, beacon);
 }
 
 void drawMission(const Game *game) {
@@ -126,5 +117,7 @@ void drawMission(const Game *game) {
     Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, m->transport));
     if (Vector2LengthSqr(axis) < 0.01f)
         axis = Vector2Normalize(Vector2Subtract(m->escortRoute[1], m->escortRoute[0]));
-    drawTransport(m->transport, axis, 1);
+    bool moving = !m->contested && Vector2Distance(game->player.position, m->transport) <= 290 &&
+                  (m->escortLeg > 0 || m->loadingTime == 0);
+    drawTransport(game, m->transport, axis, 78, moving ? 0.8f : 0.12f);
 }

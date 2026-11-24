@@ -113,7 +113,7 @@ struct S_game {
     Leaderboard leaderboard;
     bool scoreSubmitted;
 
-    Texture2D sky;
+    Texture2D sky, transportTexture, gateTexture;
     Vector2 velocity, thrust, gunAim, payoutPosition;
     const char *damageCause;
     Texture2D pilotTexture;
