@@ -19,12 +19,10 @@ bool updateScene(Game *game, float dt, bool skip) {
     return true;
 }
 
-static void drawGate(Vector2 center, float time, float radius, float glow) {
-    DrawCircleGradient(center, radius * 1.4f, Fade(UI_ICE, glow * 0.34f), Fade(UI_ICE, 0));
-    for (int i = 0; i < 4; ++i) {
-        float angle = time * 19 + i * 90;
-        DrawRing(center, radius - 3, radius + 3, angle, angle + 66, 29, Fade(UI_ICE, glow));
-    }
+static void drawGate(const Game *game, Vector2 center, float height, float light) {
+    float breathe = 0.5f + 0.5f * sinf(game->sceneTime * 2.2f);
+    DrawCircleGradient(center, height * 0.46f, Fade(UI_ICE, light * (0.12f + 0.06f * breathe)), Fade(UI_ICE, 0));
+    drawShip(game->gateTexture, center, (Vector2){0,-1}, height, WHITE, UI_MUTED);
 }
 
 void drawScene(const Game *game) {
@@ -36,36 +34,39 @@ void drawScene(const Game *game) {
     drawArenaBackdrop(drift, game->sky);
     switch (game->scene) {
     case SCENE_LAUNCH: {
-        Vector2 scout = {290 + 1030 * ease, 580 - 290 * ease};
-        drawGate((Vector2){1090,354}, t, 106, 0.58f);
-        drawShip(game->pilotTexture, scout, Vector2Normalize((Vector2){1,-0.27f}),
-                 155 - 67 * ease, WHITE, CYAN);
+        Vector2 scout = {180 + 800 * ease, 610 - 240 * ease - 65 * sinf(p * PI)};
+        drawGate(game, (Vector2){1040 - 58 * ease,365}, 350 - 45 * ease, 0.7f);
+        drawShip(game->pilotTexture, scout, direction(-0.42f + 0.38f * ease),
+                 265 - 222 * ease, WHITE, CYAN);
         line = "Aster Lead: find us a way through.";
         break;
     }
     case SCENE_ESCORT: {
-        Vector2 craft = {480 + 470 * ease, 540 - 94 * ease};
-        drawGate((Vector2){1040,390}, t, 140, 0.42f);
-        drawShip(game->pilotTexture, (Vector2){craft.x - 122, craft.y + 91}, (Vector2){1,0}, 105, WHITE, CYAN);
-        drawTransport(craft, Vector2Normalize((Vector2){1,-0.2f}), 2.6f);
+        Vector2 craft = {460 + 440 * p, 530 - 102 * p - 14 * sinf(PI * p)};
+        drawGate(game, (Vector2){1150 - 45 * p,345}, 320, 0.4f);
+        drawShip(game->pilotTexture, (Vector2){craft.x - 202 + 18 * ease, craft.y + 128 - 16 * ease}, direction(-0.26f + 0.1f * ease), 91, WHITE, CYAN);
+        drawTransport(game, craft, direction(-0.26f + 0.08f * ease), 300 - 45 * ease, 0.7f);
         line = "Mercy Six: ready for pickup.";
         break;
     }
     case SCENE_CARRIER:
-        drawGate((Vector2){790,440}, t, 250 - 56 * ease, 0.54f);
+        drawGate(game, (Vector2){850 - 75 * ease,435}, 555 - 40 * ease, 0.8f);
         drawShip(game->carrierTexture, (Vector2){790,520 - 96 * ease},
-                 direction(-PI / 2 + 0.15f * (1 - ease)), 230 + 122 * ease,
-                 Fade(WHITE, 0.45f + 0.55f * ease), AMBER);
+                 direction(-PI / 2 + 0.15f * (1 - ease)), 170 + 220 * ease,
+                 ColorLerp((Color){78,92,108,255}, WHITE, ease), AMBER);
         line = "Aster Lead: Carrier at the jump gate.";
         break;
     case SCENE_CLEAR:
-        drawGate((Vector2){980,412}, t, 130 + 30 * ease, 0.9f);
+        drawGate(game, (Vector2){980,412}, 392 + 18 * ease, 1);
         for (int i = 0; i < 3; ++i) {
             float progress = Clamp((p - i * 0.15f) / 0.67f, 0, 1);
             Vector2 ship = Vector2Lerp((Vector2){230 + i * 60,590 - i * 64},
                                       (Vector2){980,412}, progress);
-            if (progress < 0.97f)
-                drawTransport(ship, Vector2Normalize((Vector2){1,-0.17f}), 1.65f - 0.85f * progress);
+            float jump = Clamp((progress - 0.75f) * 4, 0, 1);
+            float length = (158 - 83 * progress) * (1 - jump);
+            if (length >= 1) drawTransport(game, ship, direction(-0.17f), length, 0.6f + jump);
+            if (jump > 0 && jump < 1)
+                DrawCircleGradient(ship, 53 * jump, Fade(UI_ICE, sinf(PI * jump) * 0.65f), Fade(UI_ICE, 0));
         }
         line = "Aster Rearguard: last ship through.";
         break;

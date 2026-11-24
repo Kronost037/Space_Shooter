@@ -11,3 +11,5 @@ The license is included in `src/Assets/Siege/OFL.txt`.
 The deep-field sky is original generated artwork for Sector Siege.
 
 Atkinson Hyperlegible Regular by the Braille Institute of America is distributed under the SIL Open Font License. See `src/Assets/Siege/Atkinson-OFL.txt`.
+
+Mercy Six and the industrial jump gate are original generated game artwork. Barlow Medium by Jeremy Tribby is distributed under the SIL Open Font License in `src/Assets/Siege/Barlow-OFL.txt`.

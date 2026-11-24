@@ -265,6 +265,30 @@ static void resizeWindow(int width, int height) {
     assert(!"Framebuffer resize timed out");
 }
 
+static void checkRecordRules(Game *game, RenderTexture2D world, const char *file) {
+    LeaderboardEntry rows[8] = {0};
+    for (int i = 0; i < 8; ++i) {
+        snprintf(rows[i].name, sizeof rows[i].name, "Pilot %d", i + 1);
+        rows[i].score = 900 - 70 * i;
+    }
+    Leaderboard saved = game->leaderboard;
+    game->leaderboard = (Leaderboard){.entries = rows, .count = 8, .capacity = 8};
+    snapshot(game, world, STATE_LEADERBOARD, file);
+    game->leaderboard = saved;
+    Image image = LoadImage(file);
+    assert(IsImageValid(image));
+    Rectangle v = screenViewport();
+    float scale = v.width / SCREEN_WIDTH;
+    int x = (int)(v.x + 810 * scale);
+    for (int row = 0; row < 8; ++row) {
+        int y = (int)roundf(v.y + (342 + 49 * row) * scale);
+        Color border = GetImageColor(image, x, y);
+        Color background = GetImageColor(image, x, y - 3);
+        assert(border.g > background.g + 45);
+    }
+    UnloadImage(image);
+}
+
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1200,720,"Flight verification");
@@ -275,6 +299,7 @@ int main(void) {
     initializeGame(&game);
     loadSettings(&game);
     assert(IsTextureValid(game.sky) && IsTextureValid(game.carrierTexture));
+    assert(IsTextureValid(game.transportTexture) && IsTextureValid(game.gateTexture));
     assert(game.bodyFont.texture.id != GetFontDefault().texture.id);
     testFlight(&game);
     testTimingAndMovement(&game);
@@ -332,7 +357,9 @@ int main(void) {
     game.elapsedTime = game.settings.timerMinutes * 60;
     snapshot(&game, world, STATE_GAME_OVER, "screenshots/debrief.png");
     snapshot(&game, world, STATE_LEADERBOARD, "screenshots/records.png");
+    checkRecordRules(&game, world, "screenshots/records-full.png");
     resizeWindow(640, 480);
+    checkRecordRules(&game, world, "screenshots/records-compact.png");
     snapshot(&game, world, STATE_SETTING, "screenshots/settings-640.png");
     resizeWindow(1600, 700);
     snapshot(&game, world, STATE_MENU, "screenshots/menu-wide.png");

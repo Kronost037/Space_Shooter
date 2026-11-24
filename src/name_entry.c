@@ -35,5 +35,5 @@ void drawNameEntry(Game *game) {
     float end = *name ? 450 + uiTextWidth(game, name, 34) : 441;
     if (fmodf(t, 1.0f) < 0.6f) DrawRectangle((int)end + 3, 429, 2, 30, UI_ICE);
     uiButton(game, back, "Back", CheckCollisionPointRec(GetMousePosition(), back));
-    uiButton(game, launch, "Launch", true);
+    uiButton(game, launch, "Launch", CheckCollisionPointRec(GetMousePosition(), launch));
 }
