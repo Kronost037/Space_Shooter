@@ -90,6 +90,27 @@ bool missionWaypoint(const Game *game, Vector2 *position) {
     return true;
 }
 
+void drawTransport(Vector2 center, Vector2 heading, float scale) {
+    Vector2 side = {-heading.y, heading.x};
+    Color armor = {173, 194, 204, 255};
+    Color keel = {218, 226, 221, 255};
+    for (int i = -1; i <= 1; i += 2) {
+        Vector2 pod = Vector2Add(center, Vector2Scale(side, i * 15 * scale));
+        Vector2 tail = Vector2Subtract(pod, Vector2Scale(heading, 21 * scale));
+        DrawLineEx(tail, Vector2Add(pod, Vector2Scale(heading, 9 * scale)), 8 * scale, armor);
+        DrawLineEx(tail, Vector2Subtract(tail, Vector2Scale(heading, 9 * scale)), 4 * scale, beacon);
+    }
+    Vector2 stern = Vector2Subtract(center, Vector2Scale(heading, 18 * scale));
+    Vector2 nose = Vector2Add(center, Vector2Scale(heading, 22 * scale));
+    DrawLineEx(stern, nose, 18 * scale, keel);
+    DrawCircleV(nose, 9 * scale, keel);
+    DrawLineEx(Vector2Add(center, Vector2Scale(heading, 13 * scale)), nose, 5 * scale, (Color){40,110,128,255});
+    DrawLineEx(Vector2Subtract(center, Vector2Scale(side, 6 * scale)),
+               Vector2Add(center, Vector2Scale(side, 6 * scale)), 3 * scale, DARKGREEN);
+    DrawLineEx(Vector2Subtract(center, Vector2Scale(heading, 6 * scale)),
+               Vector2Add(center, Vector2Scale(heading, 6 * scale)), 3 * scale, DARKGREEN);
+}
+
 void drawMission(const Game *game) {
     const Mission *m = &game->mission;
     if (m->stage != MISSION_SURVEY && m->stage != MISSION_ESCORT) return;
@@ -102,14 +123,8 @@ void drawMission(const Game *game) {
     if (m->stage != MISSION_ESCORT) return;
     if (m->escortLeg == 0 && m->loadingTime > 0)
         DrawRing(m->waypoint, 48, 52, -90, -90 + 360 * m->loadingTime / cargoLoadDuration, 48, AMBER);
-    Vector2 p = m->transport;
-    Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, p));
-    Vector2 side = {-axis.y,axis.x};
-    for (int i = -1; i <= 1; i += 2) {
-        Vector2 pod = Vector2Add(p, Vector2Scale(side, 14 * i));
-        DrawLineEx(Vector2Subtract(pod, Vector2Scale(axis, 19)), Vector2Add(pod, Vector2Scale(axis, 5)), 9, (Color){128,152,166,255});
-    }
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(axis, 25)), Vector2Add(p, Vector2Scale(axis, 26)), 18, RAYWHITE);
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(side, 7)), Vector2Add(p, Vector2Scale(side, 7)), 4, DARKGREEN);
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(axis, 7)), Vector2Add(p, Vector2Scale(axis, 7)), 4, DARKGREEN);
+    Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, m->transport));
+    if (Vector2LengthSqr(axis) < 0.01f)
+        axis = Vector2Normalize(Vector2Subtract(m->escortRoute[1], m->escortRoute[0]));
+    drawTransport(m->transport, axis, 1);
 }

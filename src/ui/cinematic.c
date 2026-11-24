@@ -1,6 +1,7 @@
 #include "cinematic.h"
 #include "widgets.h"
 #include "../flight/flight.h"
+#include "../flight/mission.h"
 #include "../arena.h"
 
 static const float sceneDuration = 2.8f;
@@ -46,9 +47,7 @@ void drawScene(const Game *game) {
         Vector2 craft = {480 + 470 * ease, 540 - 94 * ease};
         drawGate((Vector2){1040,390}, t, 140, 0.42f);
         drawShip(game->pilotTexture, (Vector2){craft.x - 122, craft.y + 91}, (Vector2){1,0}, 105, WHITE, CYAN);
-        DrawLineEx((Vector2){craft.x - 50,craft.y}, (Vector2){craft.x + 59,craft.y}, 42, UI_PAPER);
-        DrawRectangle((int)craft.x - 8, (int)craft.y - 15, 12, 30, DARKGREEN);
-        DrawRectangle((int)craft.x - 17, (int)craft.y - 6, 30, 12, DARKGREEN);
+        drawTransport(craft, Vector2Normalize((Vector2){1,-0.2f}), 2.6f);
         line = "Mercy Six: ready for pickup.";
         break;
     }
@@ -65,8 +64,8 @@ void drawScene(const Game *game) {
             float progress = Clamp((p - i * 0.15f) / 0.67f, 0, 1);
             Vector2 ship = Vector2Lerp((Vector2){230 + i * 60,590 - i * 64},
                                       (Vector2){980,412}, progress);
-            drawShip(game->pilotTexture, ship, (Vector2){1,0}, 98 - 45 * progress,
-                     Fade(WHITE, Clamp((1 - progress) * 4, 0, 1)), CYAN);
+            if (progress < 0.97f)
+                drawTransport(ship, Vector2Normalize((Vector2){1,-0.17f}), 1.65f - 0.85f * progress);
         }
         line = "Aster Rearguard: last ship through.";
         break;
