@@ -53,7 +53,7 @@ static void drawSectorGrid(void) {
 void drawSectorLandmarks(const Game *game, Camera2D camera) {
     drawSectorGrid();
     for (int site = 0; site < MAX_ELITES; ++site) {
-        Vector2 center = game->elites[site].ship.position;
+        Vector2 center = game->elites[site].patrolCenter;
         Vector2 screen = GetWorldToScreen2D(center, camera);
         if (screen.x < -350 || screen.x > SCREEN_WIDTH + 350 ||
             screen.y < -350 || screen.y > SCREEN_HEIGHT + 350) continue;

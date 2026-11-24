@@ -240,6 +240,19 @@ static void updateShots(Game *game) {
     }
 }
 
+static void turnPilot(Game *game, Vector2 move) {
+    game->previousHullAngle = game->hullAngle;
+    if (Vector2LengthSqr(move) > 0.0f) {
+        float target = atan2f(move.y, move.x);
+        float error = remainderf(target - game->hullAngle, 2 * PI);
+        // A damped spring leads into the turn and settles with a slight overshoot.
+        game->turnSpeed += (error * 125.0f - game->turnSpeed * 17.0f) * STEP;
+    } else {
+        game->turnSpeed *= expf(-19.0f * STEP);
+    }
+    game->hullAngle += game->turnSpeed * STEP;
+}
+
 static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
     game->dispatchTime = fmaxf(0.0f, game->dispatchTime - STEP);
     game->scoreToast = fmaxf(0.0f, game->scoreToast - STEP);
@@ -261,7 +274,7 @@ static void step(Game *game, Vector2 move, Vector2 aim, bool pulse) {
     if (player->position.y <= PILOT_RADIUS || player->position.y >= WORLD_HEIGHT - PILOT_RADIUS) game->velocity.y = 0;
     if (Vector2LengthSqr(aim) > 0.0f) game->gunAim = aim;
     Vector2 travel = Vector2Scale(game->velocity, 1.0f / player->speed);
-    player->heading = Vector2Normalize((Vector2){0.24f * travel.x, -1.0f});
+    turnPilot(game, move);
     updateCamera(game, travel);
 
     game->fireCooldown -= STEP;
@@ -343,6 +356,8 @@ void resetRunSeeded(Game *game, uint32_t seed) {
         int hull = isCarrier(i) ? rules->carrierHull : rules->wardenHull;
         game->elites[i] = (Elite){
             .maxLives = hull,
+            .patrolCenter = position,
+            .patrolPhase = (float)((seed >> (i * 8)) & 255u) * (2 * PI / 256),
             .ship = { .position = position, .previous = position,
                       .lives = hull },
             .time = 0.55f
@@ -353,6 +368,10 @@ void resetRunSeeded(Game *game, uint32_t seed) {
                                .target = start, .zoom = 1.0f };
     game->velocity = game->thrust = (Vector2){0};
     game->gunAim = (Vector2){0,-1};
+    game->hullAngle = game->previousHullAngle = -PI * 0.5f;
+    game->turnSpeed = 0;
+    game->scene = SCENE_NONE;
+    game->sceneTime = 0;
     game->damageCause = NULL;
     game->previousCameraTarget = start;
     game->accumulator = 0.0f;

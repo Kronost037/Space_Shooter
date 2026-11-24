@@ -36,6 +36,7 @@ float distanceToSegment(Vector2 point, Vector2 start, Vector2 end);
 bool eliteCanAttack(const Game *game, int index);
 void damageElite(Game *game, int index, int amount);
 void updateElite(Game *game, int index);
+void drawShip(Texture2D texture, Vector2 position, Vector2 heading, float size, Color tint, Color fallback);
 void drawAttack(const Elite *elite, int index);
 
 #endif

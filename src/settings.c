@@ -127,5 +127,4 @@ void drawSettings(const Game *game) {
     }
     uiLabel(game, TextFormat("%d%% scoring", rules->scorePercent), 325, 733, 20, UI_ICE);
     uiButton(game, done, "Done", game->settingRow == ROW_DONE || CheckCollisionPointRec(GetMousePosition(), done));
-    uiLabel(game, "Arrows to adjust  /  Esc to save", 311, 835, 20, UI_MUTED);
 }

@@ -30,7 +30,7 @@ void damageElite(Game *game, int index, int amount) {
         elite->phase = ELITE_IDLE;
         elite->cycle = 0;
         elite->echo = false;
-        game->dispatch = "Carrier core at half hull. Watch for a second wave.";
+        game->dispatch = "Second salvo incoming.";
         game->dispatchTime = 3.4f;
         elite->time = 0.45f;
         clearEliteShots(game, index);
@@ -54,9 +54,9 @@ void damageElite(Game *game, int index, int amount) {
     award(game, 100 + 50 * game->wardensCleared);
     ++game->wardensCleared;
     static const char *reports[] = {
-        "Aster Lead: first transport through. We see your beacon.",
-        "Aster Two: the hospital ship is clear. One relay remains.",
-        "Mercy Six: the final relay is clear."
+        "Aster Lead: first jammer down.",
+        "Aster Two: one Warden left.",
+        "Mercy Six: ready to depart."
     };
     game->dispatch = reports[game->wardensCleared - 1];
     game->dispatchTime = 3.6f;
@@ -112,10 +112,25 @@ static void firePattern(Game *game, int index) {
     PlaySound(game->clearSound);
 }
 
+static void moveWarden(Elite *elite) {
+    // A Warden holds position from the first warning through its recovery.
+    if (elite->phase != ELITE_IDLE) return;
+    elite->patrolPhase = fmodf(elite->patrolPhase + STEP * 0.29f, 2 * PI);
+    Vector2 orbit = direction(elite->patrolPhase);
+    Vector2 target = Vector2Add(elite->patrolCenter, (Vector2){orbit.x * 330, orbit.y * 225});
+    Vector2 heading = Vector2Normalize(Vector2Subtract(target, elite->ship.position));
+    if (Vector2LengthSqr(heading) > 0) {
+        elite->ship.heading = Vector2Normalize(Vector2Lerp(elite->ship.heading, heading, 0.065f));
+    }
+    elite->ship.position = Vector2MoveTowards(elite->ship.position, target, 108 * STEP);
+}
+
 void updateElite(Game *game, int index) {
     Elite *elite = &game->elites[index];
     if (!elite->unlocked || elite->ship.lives <= 0) return;
     elite->ship.hitFlash = fmaxf(0.0f, elite->ship.hitFlash - STEP);
+    elite->ship.previous = elite->ship.position;
+    if (!isCarrier(index)) moveWarden(elite);
 
     if (!eliteCanAttack(game, index)) {
         elite->phase = ELITE_IDLE;

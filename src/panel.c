@@ -89,7 +89,6 @@ static int nearestTarget(const Game *game) {
 }
 
 static void drawObjective(const Game *game, Camera2D camera) {
-    bool compact = uiCompact();
     int index = nearestTarget(game);
     if (index < 0) return;
     const Elite *elite = &game->elites[index];
@@ -99,7 +98,7 @@ static void drawObjective(const Game *game, Camera2D camera) {
     bool ahead = screen.x > 86 && screen.x < SCREEN_WIDTH - 86 &&
                  screen.y > 92 && screen.y < SCREEN_HEIGHT - 92;
     if (ahead) {
-        centered(game, carrier ? "COMMAND CARRIER" : "SECTOR WARDEN", 21, 24, accent);
+        centered(game, carrier ? "Command Carrier" : "Warden", 21, 24, accent);
         bar((Rectangle){SCREEN_WIDTH * 0.5f - 155.0f, 51, 310, 6},
             (float)elite->ship.lives / (float)elite->maxLives, accent);
         if (elite->phase == ELITE_WARNING) {
@@ -107,9 +106,9 @@ static void drawObjective(const Game *game, Camera2D camera) {
                                  elite->attack == ATTACK_RING ? "RING BURST" : "FAN VOLLEY";
             centered(game, attack, 67, 19, AMBER);
         } else if (elite->phase == ELITE_RECOVERY) {
-            centered(game, compact ? "CORE EXPOSED" : "CORE EXPOSED   /   DOUBLE DAMAGE", 67, 19, CYAN);
+            centered(game, "Core exposed", 67, 19, CYAN);
         } else if (carrier) {
-            centered(game, "ARMORED", 67, 19, MUTED);
+            centered(game, "Armored", 67, 19, MUTED);
         }
     } else {
         Vector2 center = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
@@ -178,9 +177,10 @@ void drawPanel(const Game *game, Camera2D camera) {
         drawHudText(game, clock, 36, pulse.y + 64, 26, remaining <= 15 ? AMBER : RAYWHITE);
     }
     if (game->dispatchTime > 0 && game->dispatch) {
-        centered(game, game->dispatch, SCREEN_HEIGHT - (compact ? 95 : 82), 23, UI_PAPER);
+        centered(game, game->dispatch, SCREEN_HEIGHT - (compact ? 95 : 82), 23,
+                 Fade(UI_PAPER, Clamp(game->dispatchTime * 2.5f, 0, 1)));
     } else if (game->elapsedTime < 12.0f) {
-        centered(game, "ARROWS MOVE   /   WASD FIRE   /   M RADAR", SCREEN_HEIGHT - (compact ? 91 : 71), 18,
+        centered(game, "Arrows: move    WASD: fire    Space: pulse", SCREEN_HEIGHT - (compact ? 91 : 71), 18,
                  Fade(MUTED, Clamp((12.0f - game->elapsedTime) / 2.0f, 0.0f, 1.0f)));
     }
 }
