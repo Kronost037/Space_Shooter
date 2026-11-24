@@ -4,9 +4,9 @@ The Aster convoy has one jump left. Fly a four-stage solo campaign across a cont
 
 | Stage | Objective |
 | --- | --- |
-| I · Dead Air | Fly through two navigation beacons to locate the blockade. |
-| II · Breakwater | Defeat three Wardens in any order. The orbital ring teaches fan volleys, the moon teaches lance locks, and the shipyard teaches staggered lanes. |
-| III · Mercy Run | Escort the hospital ship from the final relay. Stay within 290 units and clear scouts within 115 units of the transport. Your pulse can clear a stalled route. |
+| I · Dead Air | Fly through three navigation beacons to locate the blockade. |
+| II · Breakwater | Hunt three patrolling Wardens in any order. The orbital ring teaches fan volleys, the moon teaches lance locks, and the shipyard teaches staggered lanes. |
+| III · Mercy Run | Escort the hospital ship to its medicine pickup, then deliver the cargo at the jump gate. Stay within 290 units and clear scouts within 115 units of the transport. Your pulse can clear a stalled route. |
 | IV · Last Crossing | Fight the Command Carrier. At half hull its attack sequence changes and the ring battery fires twice with a rotating opening. At most one slow scout escorts it while the ship is in view. |
 
 ## Controls
@@ -17,7 +17,8 @@ The Aster convoy has one jump left. Fly a four-stage solo campaign across a cont
 | WASD | Fire independently in eight directions. |
 | Space | Discharge a charged pulse. Clears nearby hostile bolts and scouts, and damages nearby unlocked bosses. |
 | M | Toggle radar |
-| Esc | Pause or resume. Abandon the flight from the pause screen. |
+| Esc | Skip a scene or pause and resume flight. |
+| Enter | Skip a cutscene. |
 | F11 | Toggle borderless fullscreen |
 
 Amber traces warn of incoming fire. The lance stops tracking before its discharge. Crossing batteries fire inward from two muzzles. Ordinary hits damage every unlocked boss, and hits during recovery deal double damage. The pulse recharges in 15 seconds, with charge also awarded for kills.
@@ -31,7 +32,7 @@ Amber traces warn of incoming fire. The lance stops tracking before its discharg
 | Hard | 32 / 56 | 1.25× |
 | Insane | 38 / 66 | 1.50× |
 
-Difficulty also changes scout speed, reinforcement cadence, projectile speed and warning duration. The optional 1–60 minute timer measures active play and freezes on pause. Expiry ends the run with the score already earned. Master, music and effects volume are saved separately in `.game/flight-settings.txt`.
+Difficulty also changes scout speed, reinforcement cadence, projectile speed and warning duration. The optional 1–60 minute timer measures active play and freezes on pause and during cutscenes. Expiry ends the run with the score already earned. Master, music and effects volume are saved separately in `.game/flight-settings.txt`.
 
 Each beacon awards 15 base points. Wardens pay 100, 150 and 200 and repair one hull pip. Scouts pay 10 plus five per cleared Warden, capped at 12 payouts per threat stage. The escort pays 90. The Carrier pays 500 plus up to 250 for a fast clear. Each payout is multiplied by difficulty and rounded to the nearest point. Flight records use the existing local leaderboard format.
 

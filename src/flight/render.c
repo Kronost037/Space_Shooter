@@ -2,7 +2,7 @@
 #include "mission.h"
 #include "../arena.h"
 
-static void drawShip(Texture2D texture, Vector2 position, Vector2 heading, float size,
+void drawShip(Texture2D texture, Vector2 position, Vector2 heading, float size,
                      Color tint, Color fallback) {
     float angle = atan2f(heading.y, heading.x) * RAD2DEG + 90.0f;
     if (!IsTextureValid(texture)) {
@@ -42,9 +42,10 @@ void drawGame(Game *game) {
         }
         float spool = elite->phase == ELITE_WARNING ? 1.0f - elite->time / elite->duration : 0;
         float roll = 0.035f * sinf(time * 1.25f + (float)i);
-        Vector2 hull = elite->ship.position;
+        Vector2 hull = Vector2Lerp(elite->ship.previous, elite->ship.position, blend);
         hull.y += 1.8f * sinf(time * 1.75f + (float)i);
-        drawShip(texture, hull, (Vector2){roll, -1}, eliteRadius(i) * 2.4f, tint, accent);
+        drawShip(texture, hull, isCarrier(i) || Vector2LengthSqr(elite->ship.heading) == 0 ?
+                 (Vector2){roll, -1} : elite->ship.heading, eliteRadius(i) * 2.4f, tint, accent);
         if (spool > 0) {
             float reach = eliteRadius(i) + 17.0f - 10.0f * spool;
             for (int j = 0; j < 3; ++j) {
@@ -95,11 +96,15 @@ void drawGame(Game *game) {
 
     Vector2 pilot = Vector2Lerp(game->player.previous, game->player.position, blend);
     if (game->player.lives > 0) {
-        Vector2 slip = Vector2Normalize(game->velocity);
+        Vector2 slip = direction(Lerp(game->previousHullAngle, game->hullAngle, blend));
+        float yaw = game->turnSpeed;
+        Vector2 sway = {-slip.y, slip.x};
+        // Counter-sway stays visual. The muzzle and hitbox follow the simulation.
+        Vector2 hull = Vector2Subtract(pilot, Vector2Scale(sway, Clamp(yaw * 0.72f, -7, 7)));
         float speed = Clamp(Vector2Length(game->velocity) / game->player.speed, 0, 1);
         Vector2 side = {-slip.y, slip.x};
         for (int nozzle = -1; nozzle <= 1; nozzle += 2) {
-            Vector2 base = Vector2Add(Vector2Subtract(pilot, Vector2Scale(slip, 19)),
+            Vector2 base = Vector2Add(Vector2Subtract(hull, Vector2Scale(slip, 19)),
                                       Vector2Scale(side, 8.0f * nozzle));
             float length = speed * (24 + 4 * sinf(time * 42 + nozzle));
             Vector2 tip = Vector2Subtract(base, Vector2Scale(slip, length));
@@ -108,7 +113,7 @@ void drawGame(Game *game) {
         }
         Vector2 exhaust = Vector2Subtract(pilot, Vector2Scale(game->thrust, 27.0f));
         DrawCircleGradient(exhaust, 19, Fade(CYAN, 0.55f * Clamp(Vector2Length(game->thrust),0,1)), Fade(CYAN, 0));
-        drawShip(game->pilotTexture, pilot, game->player.heading, 66.0f, WHITE, CYAN);
+        drawShip(game->pilotTexture, hull, slip, 66.0f, WHITE, CYAN);
         Vector2 muzzle = Vector2Add(pilot, Vector2Scale(game->gunAim, 25));
         DrawLineEx(pilot, muzzle, 5, (Color){67,101,124,255});
         DrawCircleV(muzzle, 2.8f, CYAN);

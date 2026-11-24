@@ -1,6 +1,7 @@
 // Exercise the production fixed-step loop and the native window renderer under Xvfb.
 #include "../src/flight/flight.h"
 #include "../src/ui/display.h"
+#include "../src/ui/cinematic.h"
 #include "../src/menu.h"
 #include "../src/flight/mission.h"
 #include "../src/settings.h"
@@ -10,7 +11,7 @@
 
 static void acquireFixes(Game *game) {
     assert(game->mission.stage == MISSION_SURVEY && !game->elites[0].unlocked);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < SURVEY_GATES; ++i) {
         game->player.previous = game->player.position = game->mission.waypoint;
         advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
     }
@@ -29,11 +30,12 @@ static void escort(Game *game) {
     game->player.position.x += 350;
     advanceMission(game, STEP);
     assert(Vector2Equals(origin, game->mission.transport));
-    for (int i = 0; i < 800 && game->mission.stage == MISSION_ESCORT; ++i) {
+    for (int i = 0; i < 1300 && game->mission.stage == MISSION_ESCORT; ++i) {
         game->player.position = game->mission.transport;
         advanceMission(game, STEP);
     }
     assert(game->mission.stage == MISSION_CARRIER && game->elites[3].unlocked);
+    assert(game->mission.escortLeg == ESCORT_LEGS);
 }
 
 static void placeElite(Game *game, int index, Vector2 at) {
@@ -124,6 +126,34 @@ static void testTimingAndMovement(Game *game) {
     assert(game->player.position.x == WORLD_WIDTH - PILOT_RADIUS && game->player.position.y == PILOT_RADIUS);
     assert(Vector2Length(game->velocity) == 0);
     puts("PASS: frame cadence 30/60/120/240, movement, braking, corner limits, bounded catch-up");
+}
+
+static void testShipMotion(Game *game) {
+    resetRunSeeded(game, 83);
+    const Vector2 forward = {1, 0};
+    for (int i = 0; i < 120; ++i)
+        advanceFlight(game, STEP, forward, (Vector2){0,-1}, false);
+    assert(fabsf(remainderf(game->hullAngle, 2 * PI)) < 0.025f);
+    assert(Vector2Equals(game->gunAim, (Vector2){0,-1}));
+    for (int i = 0; i < 120; ++i)
+        advanceFlight(game, STEP, (Vector2){-1,0}, (Vector2){0,-1}, false);
+    assert(fabsf(fabsf(remainderf(game->hullAngle, 2 * PI)) - PI) < 0.05f);
+
+    resetRunSeeded(game, 83);
+    Elite *warden = &game->elites[0];
+    warden->unlocked = true;
+    Vector2 initial = warden->ship.position;
+    for (int i = 0; i < 120; ++i) updateElite(game, 0);
+    assert(Vector2Distance(initial, warden->ship.position) > 50);
+    assert(Vector2Distance(warden->patrolCenter, warden->ship.position) <= 331);
+    game->camera.target = warden->ship.position;
+    warden->phase = ELITE_WARNING;
+    warden->time = warden->duration = 0.8f;
+    Vector2 committed = warden->ship.position;
+    updateElite(game, 0);
+    assert(Vector2Equals(committed, warden->ship.position));
+    assert(Vector2Equals(game->elites[3].patrolCenter, game->elites[3].ship.position));
+    puts("PASS: rotation and independent aim, Warden patrol and committed hold");
 }
 
 static void testProjectilePool(Game *game) {
@@ -248,6 +278,7 @@ int main(void) {
     assert(game.bodyFont.texture.id != GetFontDefault().texture.id);
     testFlight(&game);
     testTimingAndMovement(&game);
+    testShipMotion(&game);
     testProjectilePool(&game);
     testPatterns(&game);
     testSeededWorlds(&game);
@@ -261,12 +292,22 @@ int main(void) {
     snapshot(&game, world, STATE_MENU, "screenshots/menu.png");
     snapshot(&game, world, STATE_SETTING, "screenshots/settings.png");
     snapshot(&game, world, STATE_NAME_ENTRY, "screenshots/briefing.png");
+    playScene(&game, SCENE_LAUNCH);
+    assert(updateScene(&game, 1.2f, false) && game.scene == SCENE_LAUNCH);
+    assert(game.elapsedTime == 0);
+    snapshot(&game, world, STATE_GAME, "screenshots/launch-scene.png");
+    assert(updateScene(&game, 0.1f, true) && game.scene == SCENE_NONE);
+    assert(!updateScene(&game, 0.1f, false));
     snapshot(&game, world, STATE_GAME, "screenshots/beacon.png");
     acquireFixes(&game);
     for (int i = 0; i < 3; ++i) damageElite(&game, i, 200);
     game.player.position = Vector2Add(game.mission.transport, (Vector2){150,120});
     game.player.previous = game.camera.target = game.previousCameraTarget = game.player.position;
     snapshot(&game, world, STATE_GAME, "screenshots/escort.png");
+    playScene(&game, SCENE_ESCORT);
+    assert(updateScene(&game, 1.3f, false));
+    snapshot(&game, world, STATE_GAME, "screenshots/escort-scene.png");
+    assert(updateScene(&game, 1.5f, false) && game.scene == SCENE_NONE);
     escort(&game);
     game.player.previous = game.camera.target = game.previousCameraTarget = game.player.position;
     Elite *carrier = &game.elites[3];
@@ -279,6 +320,13 @@ int main(void) {
     game.elapsedTime = 82.5;
     game.dispatchTime = 0;
     snapshot(&game, world, STATE_GAME, "screenshots/carrier.png");
+    playScene(&game, SCENE_CARRIER);
+    assert(updateScene(&game, 1.36f, false));
+    snapshot(&game, world, STATE_GAME, "screenshots/carrier-scene.png");
+    playScene(&game, SCENE_CLEAR);
+    assert(updateScene(&game, 1.25f, false));
+    snapshot(&game, world, STATE_GAME, "screenshots/clear-scene.png");
+    playScene(&game, SCENE_NONE);
     snapshot(&game, world, STATE_PAUSE, "screenshots/paused.png");
     game.timedOut = true;
     game.elapsedTime = game.settings.timerMinutes * 60;

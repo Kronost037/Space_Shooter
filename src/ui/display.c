@@ -1,4 +1,5 @@
 #include "display.h"
+#include "cinematic.h"
 #include "widgets.h"
 #include "../game_over.h"
 #include "../menu.h"
@@ -27,7 +28,7 @@ Rectangle screenViewport(void) {
 }
 
 void renderFrame(Game *game, RenderTexture2D frame, Rectangle viewport) {
-    bool inFlight = game->currentState == STATE_GAME || game->currentState == STATE_PAUSE;
+    bool inFlight = (game->currentState == STATE_GAME && game->scene == SCENE_NONE) || game->currentState == STATE_PAUSE;
     if (inFlight) {
         BeginTextureMode(frame);
         ClearBackground(BLACK);
@@ -46,6 +47,8 @@ void renderFrame(Game *game, RenderTexture2D frame, Rectangle viewport) {
         camera.target = Vector2Lerp(game->previousCameraTarget, camera.target, Clamp(game->accumulator * 120, 0, 1));
         drawPanel(game, camera);
         if (game->currentState == STATE_PAUSE) drawPause(game);
+    } else if (game->currentState == STATE_GAME) {
+        drawScene(game);
     } else {
         switch (game->currentState) {
         case STATE_MENU: drawMenu(game); break;

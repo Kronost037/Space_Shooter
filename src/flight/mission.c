@@ -2,6 +2,7 @@
 #include "flight.h"
 
 static const Color beacon = {134,223,207,255};
+static const float cargoLoadDuration = 1.2f;
 
 void startMission(Game *game, Vector2 launch) {
     game->mission = (Mission){.stage = MISSION_SURVEY,
@@ -13,8 +14,11 @@ void beginEscort(Game *game, Vector2 relay) {
     m->stage = MISSION_ESCORT;
     m->transport = relay;
     Vector2 route = Vector2Normalize(Vector2Subtract(game->elites[MAX_ELITES - 1].ship.position, relay));
-    m->waypoint = Vector2Add(relay, Vector2Scale(route, 760));
-    game->dispatch = "Mercy Six: engines live. Stay close and clear our route.";
+    Vector2 side = {-route.y, route.x};
+    m->escortRoute[0] = Vector2Add(relay, Vector2Add(Vector2Scale(route, 360), Vector2Scale(side, 215)));
+    m->escortRoute[1] = Vector2Add(relay, Vector2Scale(route, 990));
+    m->waypoint = m->escortRoute[0];
+    game->dispatch = "Mercy Six: stay close.";
     game->dispatchTime = 4;
 }
 
@@ -24,12 +28,14 @@ void advanceMission(Game *game, float dt) {
         burst(game, m->waypoint, beacon, 14);
         game->payoutPosition = m->waypoint;
         award(game, 15);
-        if (++m->fixes == 1) {
-            m->waypoint = Vector2Add(m->waypoint, (Vector2){-320,-215});
+        ++m->fixes;
+        if (m->fixes < SURVEY_GATES) {
+            static const Vector2 route[] = {{-270,-210}, {220,-270}};
+            m->waypoint = Vector2Add(m->waypoint, route[m->fixes - 1]);
         } else {
             m->stage = MISSION_RELAYS;
             for (int i = 0; i < MAX_ELITES - 1; ++i) game->elites[i].unlocked = true;
-            game->dispatch = "Aster Lead: signal fixed. Three jammers on your radar.";
+            game->dispatch = "Aster Lead: Wardens on radar.";
             game->dispatchTime = 3.8f;
         }
     } else if (m->stage == MISSION_ESCORT) {
@@ -43,23 +49,36 @@ void advanceMission(Game *game, float dt) {
         if (m->contested || Vector2Distance(game->player.position, m->transport) > 290) return;
         m->transport = Vector2MoveTowards(m->transport, m->waypoint, 145 * dt);
         if (Vector2Distance(m->transport, m->waypoint) > 1) return;
+        if (m->escortLeg == 0) {
+            m->loadingTime = fminf(m->loadingTime + dt, cargoLoadDuration);
+            if (m->loadingTime < cargoLoadDuration) return;
+        }
         burst(game, m->transport, beacon, 32);
+        if (++m->escortLeg < ESCORT_LEGS) {
+            m->waypoint = m->escortRoute[m->escortLeg];
+            game->dispatch = "Mercy Six: medicine aboard.";
+            game->dispatchTime = 2.6f;
+            return;
+        }
         game->payoutPosition = m->transport;
         award(game, 90);
         game->elites[MAX_ELITES - 1].unlocked = true;
         m->stage = MISSION_CARRIER;
-        game->dispatch = "Mercy Six is clear. Carrier transmitting on the jump corridor.";
+        game->dispatch = "Mercy Six: cargo delivered.";
         game->dispatchTime = 3.8f;
     }
 }
 
 const char *missionTitle(const Game *game) {
     switch (game->mission.stage) {
-    case MISSION_SURVEY: return TextFormat("I   /   DEAD AIR     -     Reach beacon %d of 2", game->mission.fixes + 1);
-    case MISSION_RELAYS: return TextFormat("II   /   BREAKWATER     -     Wardens %d of 3", game->wardensCleared);
-    case MISSION_ESCORT: return game->mission.contested ? "III   /   MERCY RUN     -     Clear nearby scouts" :
-        "III   /   MERCY RUN     -     Escort the hospital ship";
-    case MISSION_CARRIER: return "IV   /   LAST CROSSING     -     Destroy the Carrier";
+    case MISSION_SURVEY: return TextFormat("Beacon %d / %d", game->mission.fixes + 1, SURVEY_GATES);
+    case MISSION_RELAYS: return TextFormat("Wardens %d / 3", game->wardensCleared);
+    case MISSION_ESCORT:
+        if (game->mission.contested) return "Clear the route";
+        if (Vector2Distance(game->player.position, game->mission.transport) > 290) return "Stay near Mercy Six";
+        if (game->mission.escortLeg == 0) return game->mission.loadingTime > 0 ? "Loading medicine" : "Escort to pickup";
+        return "Deliver medicine";
+    case MISSION_CARRIER: return "Destroy the Carrier";
     }
     return "";
 }
@@ -69,6 +88,27 @@ bool missionWaypoint(const Game *game, Vector2 *position) {
     else if (game->mission.stage == MISSION_ESCORT) *position = game->mission.transport;
     else return false;
     return true;
+}
+
+void drawTransport(Vector2 center, Vector2 heading, float scale) {
+    Vector2 side = {-heading.y, heading.x};
+    Color armor = {173, 194, 204, 255};
+    Color keel = {218, 226, 221, 255};
+    for (int i = -1; i <= 1; i += 2) {
+        Vector2 pod = Vector2Add(center, Vector2Scale(side, i * 15 * scale));
+        Vector2 tail = Vector2Subtract(pod, Vector2Scale(heading, 21 * scale));
+        DrawLineEx(tail, Vector2Add(pod, Vector2Scale(heading, 9 * scale)), 8 * scale, armor);
+        DrawLineEx(tail, Vector2Subtract(tail, Vector2Scale(heading, 9 * scale)), 4 * scale, beacon);
+    }
+    Vector2 stern = Vector2Subtract(center, Vector2Scale(heading, 18 * scale));
+    Vector2 nose = Vector2Add(center, Vector2Scale(heading, 22 * scale));
+    DrawLineEx(stern, nose, 18 * scale, keel);
+    DrawCircleV(nose, 9 * scale, keel);
+    DrawLineEx(Vector2Add(center, Vector2Scale(heading, 13 * scale)), nose, 5 * scale, (Color){40,110,128,255});
+    DrawLineEx(Vector2Subtract(center, Vector2Scale(side, 6 * scale)),
+               Vector2Add(center, Vector2Scale(side, 6 * scale)), 3 * scale, DARKGREEN);
+    DrawLineEx(Vector2Subtract(center, Vector2Scale(heading, 6 * scale)),
+               Vector2Add(center, Vector2Scale(heading, 6 * scale)), 3 * scale, DARKGREEN);
 }
 
 void drawMission(const Game *game) {
@@ -81,14 +121,10 @@ void drawMission(const Game *game) {
         DrawRing(m->waypoint, 55, 58, angle, angle + 32, 12, beacon);
     }
     if (m->stage != MISSION_ESCORT) return;
-    Vector2 p = m->transport;
-    Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, p));
-    Vector2 side = {-axis.y,axis.x};
-    for (int i = -1; i <= 1; i += 2) {
-        Vector2 pod = Vector2Add(p, Vector2Scale(side, 14 * i));
-        DrawLineEx(Vector2Subtract(pod, Vector2Scale(axis, 19)), Vector2Add(pod, Vector2Scale(axis, 5)), 9, (Color){128,152,166,255});
-    }
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(axis, 25)), Vector2Add(p, Vector2Scale(axis, 26)), 18, RAYWHITE);
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(side, 7)), Vector2Add(p, Vector2Scale(side, 7)), 4, DARKGREEN);
-    DrawLineEx(Vector2Subtract(p, Vector2Scale(axis, 7)), Vector2Add(p, Vector2Scale(axis, 7)), 4, DARKGREEN);
+    if (m->escortLeg == 0 && m->loadingTime > 0)
+        DrawRing(m->waypoint, 48, 52, -90, -90 + 360 * m->loadingTime / cargoLoadDuration, 48, AMBER);
+    Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, m->transport));
+    if (Vector2LengthSqr(axis) < 0.01f)
+        axis = Vector2Normalize(Vector2Subtract(m->escortRoute[1], m->escortRoute[0]));
+    drawTransport(m->transport, axis, 1);
 }

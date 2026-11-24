@@ -3,6 +3,7 @@
 #include "menu.h"
 #include "leaderboard.h"
 #include "ui/display.h"
+#include "ui/cinematic.h"
 #include "settings.h"
 #include "name_entry.h"
 #include "game_over.h"
@@ -54,17 +55,27 @@ static void handleGameState(Game *game) {
             if (game->playerName[0] == '\0') strcpy(game->playerName, "PLAYER");
             game->currentState = STATE_GAME;
             resetRun(game);
+            playScene(game, SCENE_LAUNCH);
             HideCursor();
         }
         break;
-    case STATE_GAME:
+    case STATE_GAME: {
+        bool skip = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_ESCAPE);
+        if (updateScene(game, GetFrameTime(), skip)) break;
         if (IsKeyPressed(KEY_M)) game->showRadar = !game->showRadar;
         if (IsKeyPressed(KEY_ESCAPE) && game->player.lives > 0 && !game->missionCleared && !game->timedOut) {
             ShowCursor();
             game->currentState = STATE_PAUSE;
             break;
         }
+        MissionStage stage = game->mission.stage;
+        bool cleared = game->missionCleared;
         runGamePhysics(game);
+        if (!cleared && game->missionCleared) playScene(game, SCENE_CLEAR);
+        else if (game->player.lives > 0 && !game->timedOut && stage != game->mission.stage) {
+            if (game->mission.stage == MISSION_ESCORT) playScene(game, SCENE_ESCORT);
+            if (game->mission.stage == MISSION_CARRIER) playScene(game, SCENE_CARRIER);
+        }
         if (game->outcomeTime >= 0.65f) {
             game->currentState = STATE_GAME_OVER;
             ShowCursor();
@@ -72,9 +83,13 @@ static void handleGameState(Game *game) {
             submitScoreIfNeeded(game);
         }
         break;
+    }
     case STATE_GAME_OVER:
         updateGameOver(game);
-        if (game->currentState == STATE_GAME) HideCursor();
+        if (game->currentState == STATE_GAME) {
+            playScene(game, SCENE_LAUNCH);
+            HideCursor();
+        }
         break;
     case STATE_LEADERBOARD:
         leaderboardUpdate(&game->leaderboard);

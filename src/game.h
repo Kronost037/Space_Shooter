@@ -76,15 +76,23 @@ typedef struct {
     float aim;
     int cycle;
     int maxLives;
+    Vector2 patrolCenter;
+    float patrolPhase;
     bool echo;
     bool unlocked;
 } Elite;
 
 typedef enum { MISSION_SURVEY, MISSION_RELAYS, MISSION_ESCORT, MISSION_CARRIER } MissionStage;
 
+typedef enum { SCENE_NONE, SCENE_LAUNCH, SCENE_ESCORT, SCENE_CARRIER, SCENE_CLEAR } FlightScene;
+
+enum { SURVEY_GATES = 3, ESCORT_LEGS = 2 };
+
 typedef struct {
     MissionStage stage;
-    int fixes;
+    int fixes, escortLeg;
+    Vector2 escortRoute[ESCORT_LEGS];
+    float loadingTime;
     Vector2 waypoint, transport;
     bool contested;
 } Mission;
@@ -95,6 +103,8 @@ struct S_game {
     bool quit;
     State currentState;
     float screenAge;
+    float sceneTime;
+    FlightScene scene;
     Menu *menu;
     Font bodyFont;
     Settings settings;
@@ -116,6 +126,7 @@ struct S_game {
     Sound clearSound;
     Sound pulseSound;
 
+    float hullAngle, previousHullAngle, turnSpeed;
     Camera2D camera;
     Vector2 previousCameraTarget;
     Ship player;

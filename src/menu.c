@@ -77,7 +77,7 @@ void drawMenu(Game *game) {
     float t = game->menu->time;
     uiBackdrop(game, t);
     drawPatrol(game, t);
-    uiTitle(game, "SECTOR SIEGE", 90, 202, 90);
+    uiTitle(game, "Sector Siege", 90, 202, 90);
     for (int i = 0; i < 4; ++i) {
         Rectangle row = choiceBounds(i);
         uiButton(game, row, choices[i].label, i == game->menu->focus);
