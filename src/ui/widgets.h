@@ -17,6 +17,7 @@ float uiTextWidth(const Game *game, const char *text, float size);
 void uiLabel(const Game *game, const char *text, float x, float y, float size, Color color);
 void uiTitle(const Game *game, const char *text, float x, float y, float size);
 void uiButton(const Game *game, Rectangle bounds, const char *label, bool selected);
+void uiAction(const Game *game, Rectangle bounds, const char *label, bool active);
 bool uiClicked(Rectangle bounds);
 
 #endif

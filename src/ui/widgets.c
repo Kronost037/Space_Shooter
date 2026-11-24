@@ -2,9 +2,19 @@
 #include "../arena.h"
 
 void uiBackdrop(const Game *game, float time) {
-    Camera2D camera = {.target = {2100 + sinf(time * 0.07f) * 180, 1600 + cosf(time * 0.05f) * 120}};
-    drawArenaBackdrop(camera, game->sky);
-    DrawRectangleGradientH(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){5,13,25,238}, (Color){9,17,31,45});
+    if (IsTextureValid(game->drydock)) {
+        Texture2D plate = game->drydock;
+        float zoom = 1.04f;
+        float fit = fmaxf((float)SCREEN_WIDTH / plate.width, (float)SCREEN_HEIGHT / plate.height) * zoom;
+        float w = plate.width * fit, h = plate.height * fit;
+        float x = (SCREEN_WIDTH - w) * (0.5f + 0.25f * sinf(time * 0.10f));
+        float y = (SCREEN_HEIGHT - h) * (0.5f + 0.18f * cosf(time * 0.12f));
+        DrawTexturePro(plate, (Rectangle){0,0,(float)plate.width,(float)plate.height},
+                       (Rectangle){x,y,w,h}, (Vector2){0}, 0, WHITE);
+    } else {
+        drawArenaBackdrop((Camera2D){.target={2100,1600}}, game->sky);
+    }
+    DrawRectangleGradientH(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){4,10,17,170}, (Color){5,12,21,35});
 }
 
 void uiSurface(Rectangle area) {
@@ -43,4 +53,16 @@ void uiButton(const Game *game, Rectangle bounds, const char *label, bool select
 
 bool uiClicked(Rectangle bounds) {
     return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), bounds);
+}
+
+
+void uiAction(const Game *game, Rectangle bounds, const char *label, bool active) {
+    Color ink = active ? UI_AMBER : UI_PAPER;
+    if (active) {
+        DrawRectangleGradientH((int)bounds.x, (int)bounds.y, (int)bounds.width, (int)bounds.height,
+                               (Color){194,133,63,54}, (Color){194,133,63,0});
+        DrawRectangleRec((Rectangle){bounds.x, bounds.y + 9, 4, bounds.height - 18}, UI_AMBER);
+    }
+    float size = uiTextSize(30);
+    uiLabel(game, label, bounds.x + 20, bounds.y + (bounds.height - size) / 2, size, ink);
 }

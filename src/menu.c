@@ -1,4 +1,6 @@
 #include "menu.h"
+#include "flight/flight.h"
+#include "flight/mission.h"
 #include "ui/widgets.h"
 
 static const struct { const char *label; MenuAction action; } choices[] = {
@@ -9,7 +11,7 @@ static const struct { const char *label; MenuAction action; } choices[] = {
 };
 
 static Rectangle choiceBounds(int index) {
-    return (Rectangle){94, 372 + (float)index * 71, 406, 57};
+    return (Rectangle){104, 415 + (float)index * 67, 350, 59};
 }
 
 void initializeMenu(Menu *menu) {
@@ -46,7 +48,7 @@ void runMenuPhysics(Game *game) {
 }
 
 bool menuActionReady(const Menu *menu) {
-    return menu->pending && menu->transition >= 0.16f;
+    return menu->pending && menu->transition >= (menu->pending == MENU_ACTION_START ? 0.48f : 0.16f);
 }
 
 MenuAction menuConsumeAction(Menu *menu) {
@@ -57,33 +59,41 @@ MenuAction menuConsumeAction(Menu *menu) {
 }
 
 static void drawPatrol(const Game *game, float time) {
-    Vector2 center = {1040, 428 + sinf(time * 0.85f) * 7};
-    for (int i = 0; i < 3; ++i) {
-        float angle = time * (i % 2 ? -5 : 6) + i * 92;
-        float r = 195 + i * 18;
-        DrawRing(center, r, r + 2, angle, angle + 102, 64, Fade(UI_ICE, 0.24f));
-        DrawRing(center, r, r + 2, angle + 110, angle + 120, 10, UI_AMBER);
+    // A distant transport crosses the opening before the pilot in the foreground.
+    float transit = fmodf(time, 38.0f) / 38.0f;
+    Vector2 freighter = {790 + 835 * transit, 290 - 85 * transit};
+    drawTransport(game, freighter, direction(-0.10f), 53, 0.18f);
+    float phase = time * 0.51f;
+    bool departing = game->menu->pending == MENU_ACTION_START;
+    float launch = departing ? Clamp(game->menu->transition / 0.48f, 0, 1) : 0;
+    Vector2 nose = direction(-0.49f + 0.035f * sinf(phase));
+    Vector2 center = {1005 + 16 * sinf(phase * 0.6f), 462 + 8 * cosf(phase)};
+    center = Vector2Add(center, Vector2Scale(nose, 380 * launch * launch));
+    float size = 275 - 84 * launch;
+    Vector2 side = {-nose.y, nose.x};
+    for (int i = -1; i <= 1; i += 2) {
+        Vector2 nozzle = Vector2Add(Vector2Subtract(center, Vector2Scale(nose, size * 0.33f)),
+                                    Vector2Scale(side, i * size * 0.13f));
+        float wake = 34 + 6 * sinf(phase * 7 + i) + 110 * launch;
+        for (int j = 5; j >= 0; --j) {
+            float u = j / 5.0f;
+            Vector2 at = Vector2Subtract(nozzle, Vector2Scale(nose, u * wake));
+            DrawCircleGradient(at, (16 - 8 * u), Fade(UI_ICE, 0.18f * (1 - u)), Fade(UI_ICE, 0));
+        }
     }
-    Texture2D ship = game->pilotTexture;
-    if (IsTextureValid(ship)) {
-        float size = 380, h = size * ship.height / ship.width;
-        DrawTexturePro(ship, (Rectangle){0,0,(float)ship.width,(float)ship.height},
-                       (Rectangle){center.x,center.y,size,h}, (Vector2){size / 2,h / 2},
-                       25 + 3 * sinf(time * 0.42f), WHITE);
-    }
+    drawShip(game->pilotTexture, center, nose, size, (Color){222,222,211,255}, UI_ICE);
 }
 
 void drawMenu(Game *game) {
     float t = game->menu->time;
     uiBackdrop(game, t);
     drawPatrol(game, t);
-    uiTitle(game, "Sector Siege", 90, 202, 90);
+    uiTitle(game, "Sector", 99, 158, 97);
+    uiTitle(game, "Siege", 94, 231, 148);
     for (int i = 0; i < 4; ++i) {
         Rectangle row = choiceBounds(i);
-        uiButton(game, row, choices[i].label, i == game->menu->focus);
-        if (i == game->menu->focus)
-            DrawRectangle((int)(row.x + row.width - 34), (int)(row.y + 28), 12, 2, UI_INK);
+        uiAction(game, row, choices[i].label, i == game->menu->focus);
     }
     if (game->menu->pending)
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, Clamp(game->menu->transition / 0.16f, 0, 1)));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, Clamp(game->menu->pending == MENU_ACTION_START ? (game->menu->transition - 0.28f) / 0.20f : game->menu->transition / 0.16f, 0, 1)));
 }
