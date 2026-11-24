@@ -411,6 +411,7 @@ void initializeGame(Game *game) {
     *game = (Game){ .showRadar = true, .settings = DEFAULT_SETTINGS };
     game->transportTexture = loadShip("src/Assets/Siege/mercy-six.png");
     game->gateTexture = loadShip("src/Assets/Siege/jump-gate.png");
+    game->drydock = loadShip("src/Assets/Siege/drydock.png");
     game->sky = loadShip("src/Assets/Siege/deep-field.png");
     game->pilotTexture = loadShip("src/Assets/Siege/pilot.png");
     game->scoutTexture = loadShip("src/Assets/Siege/scout.png");
@@ -435,6 +436,7 @@ void shutdownGame(Game *game) {
     UnloadTexture(game->transportTexture);
     UnloadTexture(game->gateTexture);
     UnloadTexture(game->sky);
+    UnloadTexture(game->drydock);
     UnloadTexture(game->pilotTexture);
     UnloadTexture(game->scoutTexture);
     UnloadTexture(game->wardenTexture);

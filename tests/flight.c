@@ -300,6 +300,7 @@ int main(void) {
     loadSettings(&game);
     assert(IsTextureValid(game.sky) && IsTextureValid(game.carrierTexture));
     assert(IsTextureValid(game.transportTexture) && IsTextureValid(game.gateTexture));
+    assert(IsTextureValid(game.drydock));
     assert(game.bodyFont.texture.id != GetFontDefault().texture.id);
     testFlight(&game);
     testTimingAndMovement(&game);

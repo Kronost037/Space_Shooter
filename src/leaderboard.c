@@ -163,9 +163,9 @@ void leaderboardAddScore(Leaderboard *lb, const char *name, int score) {
     leaderboardSave(lb);
 }
 
-static const Rectangle previous = {790, 726, 158, 54};
-static const Rectangle next = {966, 726, 158, 54};
-static const Rectangle back = {372, 726, 220, 54};
+static const Rectangle previous = {596, 726, 178, 54};
+static const Rectangle next = {784, 726, 142, 54};
+static const Rectangle back = {102, 726, 225, 54};
 
 void leaderboardUpdate(Leaderboard *lb) {
     float wheel = GetMouseWheelMove();
@@ -182,11 +182,15 @@ bool leaderboardBack(void) {
 void drawLeaderboard(const Game *game) {
     const Leaderboard *lb = &game->leaderboard;
     uiBackdrop(game, (float)GetTime());
-    uiSurface((Rectangle){310,75,880,744});
-    uiTitle(game, "Records", 368, 152, 60);
-    uiLabel(game, "Rank", 372, 250, 22, UI_MUTED);
-    uiLabel(game, "Callsign", 514, 250, 22, UI_MUTED);
-    uiLabel(game, "Score", 990, 250, 22, UI_MUTED);
+    DrawRectangle(0, 0, 930, SCREEN_HEIGHT, (Color){6,13,21,201});
+    DrawRectangleGradientH(930, 0, SCREEN_WIDTH - 930, SCREEN_HEIGHT, (Color){6,13,21,201},
+                           (Color){6,13,21,0});
+    uiTitle(game, "Flight records", 100, 98, 78);
+    if (lb->count) {
+        uiLabel(game, "Rank", 112, 246, 24, UI_MUTED);
+        uiLabel(game, "Callsign", 254, 246, 24, UI_MUTED);
+        uiLabel(game, "Score", 925 - uiTextWidth(game, "Score", 24), 246, 24, UI_MUTED);
+    }
     Rectangle viewport = screenViewport();
     float scale = viewport.width / SCREEN_WIDTH;
     // Snap both boundaries in window space; a logical pixel can vanish after scaling.
@@ -196,13 +200,14 @@ void drawLeaderboard(const Game *game) {
         if (i >= lb->count) break;
         float y = 303 + 49 * row;
         float edge = (roundf(viewport.y + (y + 39) * scale) - viewport.y) / scale;
-        DrawRectangleRec((Rectangle){372, edge, 752, thickness}, (Color){98,120,135,255});
-        uiLabel(game, TextFormat("%02d", i + 1), 372, y, 24, i == 0 ? UI_AMBER : UI_MUTED);
-        uiLabel(game, lb->entries[i].name, 514, y, 24, UI_PAPER);
-        uiLabel(game, TextFormat("%d", lb->entries[i].score), 990, y, 24, UI_PAPER);
+        DrawRectangleRec((Rectangle){112, edge, 813, thickness}, (Color){98,120,135,255});
+        uiLabel(game, TextFormat("%02d", i + 1), 112, y, 24, i == 0 ? UI_AMBER : UI_MUTED);
+        uiLabel(game, lb->entries[i].name, 254, y, 24, UI_PAPER);
+        const char *score = TextFormat("%d", lb->entries[i].score);
+        uiLabel(game, score, 925 - uiTextWidth(game, score, 24), y, 24, i == 0 ? UI_AMBER : UI_PAPER);
     }
-    if (!lb->count) uiLabel(game, "No scores yet", 372, 333, 25, UI_PAPER);
-    uiButton(game, back, "Main menu", CheckCollisionPointRec(GetMousePosition(), back));
-    if (lb->page) uiButton(game, previous, "Previous", CheckCollisionPointRec(GetMousePosition(), previous));
-    if ((lb->page + 1) * PAGE_SIZE < lb->count) uiButton(game, next, "Next", CheckCollisionPointRec(GetMousePosition(), next));
+    if (!lb->count) uiLabel(game, "No flights recorded", 112, 323, 28, UI_PAPER);
+    uiAction(game, back, "Main menu", CheckCollisionPointRec(GetMousePosition(), back));
+    if (lb->page) uiAction(game, previous, "Previous", CheckCollisionPointRec(GetMousePosition(), previous));
+    if ((lb->page + 1) * PAGE_SIZE < lb->count) uiAction(game, next, "Next", CheckCollisionPointRec(GetMousePosition(), next));
 }
