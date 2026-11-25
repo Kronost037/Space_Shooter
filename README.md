@@ -54,3 +54,5 @@ For a local Raylib build, run `./build --download raylib` first. It uses CMake, 
 - `flight/mission.c` owns campaign objectives. `flight/encounter.c` shares attack geometry between telegraphs and projectiles. `flight/render.c` interpolates the action for display.
 - `rules.c` holds difficulty profiles. `ui/` owns viewport composition, typography and widgets. The HUD renders directly into the window after the world pass.
 - `resetRunSeeded` starts a world with an explicit spawn seed. `advanceFlight` accepts movement, aim, pulse and elapsed time. These are the entry points for testing and future parallel-world play. Networking, elimination and online score arbitration remain future work.
+
+Captain Sen and dock controller Vale exchange short radio calls during the skippable convoy scenes. A nonblank callsign is required to launch. Mercy Six loads the medical crate at the first stop and delivers it to a berth 250 units from the Carrier. Interceptors pursue the transport during the escort. Extra scouts withdraw when the gate duel begins. The drydock meteor stream starts after eight idle seconds.

@@ -16,14 +16,14 @@ static int command_exists(const char *cmd)
     return system(buffer) == 0;
 }
 
-static void fetch_raylib(void)
+static int fetch_raylib(void)
 {
 
     if(access("raylib/include/raylib.h", F_OK)  == 0  &&
        access("raylib/include/raymath.h", F_OK) == 0  &&
        access("raylib/lib/libraylib.a", F_OK)   == 0) {
         puts("INFO: Raylib is already installed.");
-        return;
+        return 0;
     }
     
     int exit = 0;
@@ -48,7 +48,7 @@ static void fetch_raylib(void)
         puts("INFO: Input the names of missing tools in the following command.");
         puts("INFO: sudo apt install <name>");
         puts("INFO: Ex. sudo apt install wget cmake unzip");
-        return;
+        return 1;
     }
     
     puts("INFO: [*] Downloading Raylib...");
@@ -58,15 +58,15 @@ static void fetch_raylib(void)
     if (system(cmd))
     {
         puts("INFO: Failed to download Raylib.");
-        return;
+        return 1;
     }
 
     puts("INFO: Building Raylib locally...");
 
     const char *build_cmd =
-        "unzip raylib-6.0.zip && "
+        "unzip -oq raylib-6.0.zip && "
         "cd raylib-6.0 && "
-        "mkdir build && "
+        "mkdir -p build && "
         "cd build && "
         "cmake "
         "-DBUILD_SHARED_LIBS=OFF -DBUILD_EXAMPLES=OFF "
@@ -82,12 +82,13 @@ static void fetch_raylib(void)
         puts("INFO: Failed to build Raylib.");
         puts("INFO: Might be missing X11 dev-tools. Try the following command,");
         puts("INFO: sudo apt install xorg-dev");
-        return;
+        return 1;
     }
 
     puts("INFO: Raylib files installed locally in the following locations:");
     puts("     ./raylib/include");
     puts("     ./raylib/lib");
+    return 0;
 }
 
 typedef enum {
@@ -166,8 +167,7 @@ int main(int argc, char **argv)
         }
 
         if (strcmp(argv[2], "raylib") == 0) {
-            fetch_raylib();
-            return 0;
+            return fetch_raylib();
         }
 
         printf("INFO: Unknown dependency: %s\n", argv[2]);

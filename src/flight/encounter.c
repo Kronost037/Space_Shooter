@@ -6,11 +6,7 @@ bool eliteCanAttack(const Game *game, int index) {
     // Attack permission depends on whether the pilot can see the emitter.
     // Damage from a pilot bolt is resolved independently in world space.
     if (!elite->unlocked || elite->ship.lives <= 0) return false;
-    Vector2 p = GetWorldToScreen2D(elite->ship.position, game->camera);
-    if (!onScreen(game->camera, elite->ship.position, 12.0f)) return false;
-    bool behindStatus = p.x >= 22 && p.x <= 250 && p.y >= 22 && p.y <= 227;
-    bool behindRadar = p.x >= SCREEN_WIDTH - 225 && p.x <= SCREEN_WIDTH - 22 && p.y >= 22 && p.y <= 203;
-    return !behindStatus && !behindRadar;
+    return onScreen(game->camera, elite->ship.position, 12.0f);
 }
 
 static void clearEliteShots(Game *game, int index) {
@@ -45,7 +41,7 @@ void damageElite(Game *game, int index, int amount) {
     burst(game, elite->ship.position, isCarrier(index) ? AMBER : WARDEN_ACCENT, 42);
     PlaySound(game->clearSound);
     if (isCarrier(index)) {
-        game->clearBonus = (int)Clamp(3.0f * (120.0f - game->elapsedTime), 0.0f, 250.0f);
+        game->clearBonus = (int)Clamp(3.0f * (120.0 - game->flightTick / 120.0), 0.0f, 250.0f);
         award(game, 500 + game->clearBonus);
         game->missionCleared = true;
         return;
@@ -132,7 +128,7 @@ void updateElite(Game *game, int index) {
     elite->ship.previous = elite->ship.position;
     if (!isCarrier(index)) moveWarden(elite);
 
-    if (!eliteCanAttack(game, index)) {
+    if (elite->phase == ELITE_IDLE && !eliteCanAttack(game, index)) {
         elite->phase = ELITE_IDLE;
         elite->time = 0.55f;
         return;
@@ -213,7 +209,7 @@ void drawAttack(const Elite *elite, int index) {
     float progress = 1.0f - Clamp(elite->time / elite->duration, 0.0f, 1.0f);
     int rayCount = elite->attack == ATTACK_LANCE ? 1 : patternCount(elite, index);
     float length = elite->attack == ATTACK_LANCE ? LANCE_REACH :
-                   (elite->attack == ATTACK_RING ? 300.0f : 405.0f);
+                   (elite->attack == ATTACK_RING ? 570.0f : 680.0f);
     for (int i = 0; i < rayCount; ++i) {
         float angle = elite->attack == ATTACK_LANCE ? elite->aim : patternAngle(elite, i, rayCount);
         Vector2 ray = direction(angle);

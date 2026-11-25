@@ -24,6 +24,7 @@ void drawGameOver(Game *game) {
     uiLabel(game, "points", 109, 421, 27, UI_MUTED);
     if (!game->missionCleared && !game->timedOut && game->damageCause)
         uiLabel(game, game->damageCause, 109, 478, 23, UI_MUTED);
+    if (game->score > 0 && !game->scoreSubmitted) uiLabel(game, "Record could not be saved", 109, 510, 21, UI_AMBER);
     bool hoverBack = CheckCollisionPointRec(GetMousePosition(), back);
     uiAction(game, retry, "Fly again", !hoverBack);
     uiAction(game, back, "Main menu", hoverBack);

@@ -30,7 +30,7 @@ static void escort(Game *game) {
     game->player.position.x += 350;
     advanceMission(game, STEP);
     assert(Vector2Equals(origin, game->mission.transport));
-    for (int i = 0; i < 1300 && game->mission.stage == MISSION_ESCORT; ++i) {
+    for (int i = 0; i < 4800 && game->mission.stage == MISSION_ESCORT; ++i) {
         game->player.position = game->mission.transport;
         advanceMission(game, STEP);
     }
@@ -80,6 +80,7 @@ static void testFlight(Game *game) {
             game->scouts[i] = (Ship){.position = far, .previous = far, .speed = 300, .lives = 1};
         game->spawnTimer = 0;
         advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
+        for (int retreat = 0; retreat < 110; ++retreat) advanceFlight(game,STEP,(Vector2){0},(Vector2){0},false);
         int escorts = 0;
         for (int i = 0; i < MAX_ENEMIES; ++i) escorts += game->scouts[i].lives;
         assert(escorts == 1 && game->scoutKills == 0 && game->score == surveyScore);
@@ -182,6 +183,29 @@ static void testProjectilePool(Game *game) {
     advanceFlight(game, STEP, (Vector2){0}, (Vector2){0}, false);
     assert(game->elites[0].ship.lives == game->elites[0].maxLives - 1);
     puts("PASS: saturated pool, pulse discharge, cooldown, blind fire and swept hit after camera movement");
+}
+
+static void testScoringAndGate(Game *game) {
+    int score = 0;
+    for (int run = 0; run < 2; ++run) {
+        game->settings = DEFAULT_SETTINGS;
+        resetRunSeeded(game, 83);
+        game->elapsedTime = 50.28;
+        game->flightTick = 6033;
+        Elite *carrier = &game->elites[3];
+        carrier->unlocked = true;
+        carrier->ship.lives = 1;
+        game->showRadar = false;
+        placeElite(game,3,GetScreenToWorld2D((Vector2){1300,100},game->camera));
+        assert(eliteCanAttack(game,3));
+        placeElite(game,3,Vector2Add(game->player.position,(Vector2){100,0}));
+        advanceFlight(game,run ? 0.1 : STEP,(Vector2){0},(Vector2){0},true);
+        assert(game->missionCleared);
+        if (run) assert(score == game->score);
+        score = game->score;
+    }
+    game->showRadar = true;
+    puts("PASS: hidden radar and frame-independent kill payout");
 }
 
 static void testSeededWorlds(Game *game) {
@@ -307,6 +331,7 @@ int main(void) {
     testShipMotion(&game);
     testProjectilePool(&game);
     testPatterns(&game);
+    testScoringAndGate(&game);
     testSeededWorlds(&game);
     game.settings = DEFAULT_SETTINGS;
     game.settings.timerEnabled = true;
@@ -315,13 +340,21 @@ int main(void) {
     RenderTexture2D world = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     SetTextureFilter(world.texture, TEXTURE_FILTER_BILINEAR);
     MakeDirectory("screenshots");
+    assert(IsTextureValid(game.hatch) && IsTextureValid(game.crewPortraits));
     snapshot(&game, world, STATE_MENU, "screenshots/menu.png");
+    for (int beat = 0; beat < 3; ++beat) {
+        game.menu->idleTime = 13.8f + beat * 0.5f;
+        game.menu->time = game.menu->idleTime;
+        snapshot(&game, world, STATE_MENU, TextFormat("screenshots/shower-%d.png",beat));
+    }
     snapshot(&game, world, STATE_SETTING, "screenshots/settings.png");
     snapshot(&game, world, STATE_NAME_ENTRY, "screenshots/briefing.png");
     playScene(&game, SCENE_LAUNCH);
     assert(updateScene(&game, 1.2f, false) && game.scene == SCENE_LAUNCH);
     assert(game.elapsedTime == 0);
     snapshot(&game, world, STATE_GAME, "screenshots/launch-scene.png");
+    assert(updateScene(&game,3.0f,false));
+    snapshot(&game, world, STATE_GAME, "screenshots/captain.png");
     assert(updateScene(&game, 0.1f, true) && game.scene == SCENE_NONE);
     assert(!updateScene(&game, 0.1f, false));
     snapshot(&game, world, STATE_GAME, "screenshots/beacon.png");
@@ -333,7 +366,7 @@ int main(void) {
     playScene(&game, SCENE_ESCORT);
     assert(updateScene(&game, 1.3f, false));
     snapshot(&game, world, STATE_GAME, "screenshots/escort-scene.png");
-    assert(updateScene(&game, 1.5f, false) && game.scene == SCENE_NONE);
+    assert(updateScene(&game, 6.0f, false) && game.scene == SCENE_NONE);
     escort(&game);
     game.player.previous = game.camera.target = game.previousCameraTarget = game.player.position;
     Elite *carrier = &game.elites[3];

@@ -16,7 +16,7 @@ void beginEscort(Game *game, Vector2 relay) {
     Vector2 route = Vector2Normalize(Vector2Subtract(game->elites[MAX_ELITES - 1].ship.position, relay));
     Vector2 side = {-route.y, route.x};
     m->escortRoute[0] = Vector2Add(relay, Vector2Add(Vector2Scale(route, 360), Vector2Scale(side, 215)));
-    m->escortRoute[1] = Vector2Add(relay, Vector2Scale(route, 990));
+    m->escortRoute[1] = Vector2Subtract(game->elites[MAX_ELITES - 1].ship.position, Vector2Scale(route, 250));
     m->waypoint = m->escortRoute[0];
     game->dispatch = "Mercy Six: stay close.";
     game->dispatchTime = 4;
@@ -139,4 +139,12 @@ void drawMission(const Game *game) {
     bool moving = !m->contested && Vector2Distance(game->player.position, m->transport) <= 290 &&
                   (m->escortLeg > 0 || m->loadingTime == 0);
     drawTransport(game, m->transport, axis, 78, moving ? 0.8f : 0.12f);
+    if (m->escortLeg > 0 || m->loadingTime > 0) {
+        Vector2 side = {-axis.y, axis.x};
+        float loading = m->escortLeg ? 1 : m->loadingTime / cargoLoadDuration;
+        Vector2 crate = Vector2Add(m->transport,Vector2Scale(side, 14 + 43 * (1-loading)));
+        DrawRectanglePro((Rectangle){crate.x,crate.y,18,10},(Vector2){9,5},
+                         atan2f(axis.y,axis.x)*RAD2DEG,(Color){182,155,111,255});
+        DrawCircleV(crate,2,beacon);
+    }
 }

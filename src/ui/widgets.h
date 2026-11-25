@@ -9,6 +9,7 @@
 #define UI_AMBER ((Color){255, 189, 99, 255})
 #define UI_ICE ((Color){129, 221, 225, 255})
 
+void uiDockLayer(Texture2D plate, float time);
 void uiBackdrop(const Game *game, float time);
 void uiSurface(Rectangle area);
 bool uiCompact(void);

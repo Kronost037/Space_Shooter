@@ -30,9 +30,9 @@ void leaderboardInit(Leaderboard *lb);
 void leaderboardShutdown(Leaderboard *lb);
 
 void leaderboardLoad(Leaderboard *lb);
-void leaderboardSave(const Leaderboard *lb);
+bool leaderboardSave(const Leaderboard *lb);
 
-void leaderboardAddScore(Leaderboard *lb, const char *name, int score);
+bool leaderboardAddScore(Leaderboard *lb, const char *name, int score);
 
 void leaderboardUpdate(Leaderboard *lb);
 bool leaderboardBack(void);

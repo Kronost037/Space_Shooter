@@ -65,8 +65,9 @@ MenuAction menuConsumeAction(Menu *menu) {
 static void drawPatrol(const Game *game, float time) {
     // A distant transport crosses the opening before the pilot in the foreground.
     float transit = fmodf(time, 38.0f) / 38.0f;
-    Vector2 freighter = {790 + 835 * transit, 290 - 85 * transit};
+    Vector2 freighter = {-80 + 1680 * transit, 320 - 125 * transit};
     drawTransport(game, freighter, direction(-0.10f), 53, 0.18f);
+    uiDockLayer(game->hatch,time);
     float phase = time * 0.51f;
     bool departing = game->menu->pending == MENU_ACTION_START;
     float launch = departing ? Clamp(game->menu->transition / 0.48f, 0, 1) : 0;
@@ -91,16 +92,35 @@ static void drawPatrol(const Game *game, float time) {
 void drawMenu(Game *game) {
     float t = game->menu->time;
     uiBackdrop(game, t);
-    // Confine the brief shower to the open sky above the pilot.
-    float shower = fmodf(game->menu->idleTime, 64.0f) - 25.0f;
-    for (int i = 0; i < 3; ++i) {
-        float progress = (shower - i * 0.72f) / 0.8f;
-        if (progress <= 0 || progress >= 1) continue;
-        Vector2 head = {878 + progress * 175 + i * 26, 209 + progress * 88 - i * 13};
-        Vector2 tail = Vector2Subtract(head, (Vector2){36,18});
-        float light = sinf(progress * PI);
-        DrawLineEx(tail, head, 1.7f, Fade(UI_PAPER, light * 0.62f));
-        DrawCircleV(head, 2, Fade(UI_PAPER, light));
+    // A sparse precursor, a denser stream, then a slow fragmenting bolide.
+    float shower = fmodf(game->menu->idleTime, 58) - 8;
+    for (int i = 0; i < 29; ++i) {
+        bool bolide = i == 28;
+        float start = bolide ? 5.4f : (i == 0 ? 0 : 1.8f + i * 0.19f);
+        float age = (shower - start) / (bolide ? 2.1f : 0.9f + (i % 4) * 0.13f);
+        if (age <= 0 || age >= 1) continue;
+        float span = bolide ? 635 : 240 + (i * 79 % 250);
+        Vector2 head = {660 + (i * 83 % 340) + span * age,
+                        113 + (i * 37 % 140) + span * age * 0.45f};
+        float light = sinf(age * PI);
+        for (int j = 0; j < 13; ++j) {
+            float u = j / 13.0f;
+            Vector2 d = {bolide ? 15 : 6, bolide ? 6.75f : 2.7f};
+            Vector2 near = Vector2Subtract(head, Vector2Scale(d, j));
+            DrawLineEx(near, Vector2Subtract(near,d), (bolide ? 18 : 7)*(1-u),
+                       Fade((Color){250,127,57,255},light*(1-u)*0.19f));
+            DrawLineEx(near, Vector2Subtract(near,d), (bolide ? 8 : 3.4f)*(1-u),
+                       Fade((Color){255,190,119,255},light*(1-u)));
+        }
+        DrawCircleGradient(head, bolide ? 28 : 9, Fade(UI_AMBER,light*0.7f), Fade(UI_AMBER,0));
+        DrawCircleV(head,bolide ? 3.8f : 1.8f,Fade(UI_PAPER,light));
+        if (bolide && age > 0.46f) {
+            for (int j = 1; j <= 4; ++j) {
+                float drift = (age - 0.46f) * j;
+                Vector2 chip = {head.x - 37*drift,head.y + (j%2 ? 18 : -13)*drift};
+                DrawLineEx(chip,Vector2Subtract(chip,(Vector2){17,7}),2,Fade(UI_AMBER,light));
+            }
+        }
     }
     drawPatrol(game, t);
     uiTitle(game, "Sector", 99, 158, 97);
