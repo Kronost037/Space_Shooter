@@ -38,7 +38,7 @@ void drawScene(const Game *game) {
         drawGate(game, (Vector2){1040 - 58 * ease,365}, 350 - 45 * ease, 0.7f);
         drawShip(game->pilotTexture, scout, direction(-0.42f + 0.38f * ease),
                  265 - 222 * ease, WHITE, CYAN);
-        line = "Aster Lead: find us a way through.";
+        line = "Mercy Six: We have your lights, Lead. Take us through.";
         break;
     }
     case SCENE_ESCORT: {

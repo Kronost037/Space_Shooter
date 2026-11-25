@@ -25,6 +25,10 @@ void runMenuPhysics(Game *game) {
     Menu *menu = game->menu;
     float dt = fminf(GetFrameTime(), 0.1f);
     menu->time += dt;
+    bool activity = Vector2LengthSqr(GetMouseDelta()) > 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+                    IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_ENTER) ||
+                    IsKeyPressed(KEY_KP_ENTER);
+    menu->idleTime = activity || menu->pending ? 0 : menu->idleTime + dt;
     if (menu->pending) {
         menu->transition += dt;
         return;
@@ -87,6 +91,17 @@ static void drawPatrol(const Game *game, float time) {
 void drawMenu(Game *game) {
     float t = game->menu->time;
     uiBackdrop(game, t);
+    // Confine the brief shower to the open sky above the pilot.
+    float shower = fmodf(game->menu->idleTime, 64.0f) - 25.0f;
+    for (int i = 0; i < 3; ++i) {
+        float progress = (shower - i * 0.72f) / 0.8f;
+        if (progress <= 0 || progress >= 1) continue;
+        Vector2 head = {878 + progress * 175 + i * 26, 209 + progress * 88 - i * 13};
+        Vector2 tail = Vector2Subtract(head, (Vector2){36,18});
+        float light = sinf(progress * PI);
+        DrawLineEx(tail, head, 1.7f, Fade(UI_PAPER, light * 0.62f));
+        DrawCircleV(head, 2, Fade(UI_PAPER, light));
+    }
     drawPatrol(game, t);
     uiTitle(game, "Sector", 99, 158, 97);
     uiTitle(game, "Siege", 94, 231, 148);
