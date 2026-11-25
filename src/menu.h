@@ -11,7 +11,7 @@ struct S_menu {
     Music bg_song;
     Sound hover_sfx, click_sfx;
     int focus;
-    float time, transition;
+    float time, transition, idleTime;
     MenuAction pending;
 };
 

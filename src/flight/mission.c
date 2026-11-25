@@ -29,8 +29,12 @@ void advanceMission(Game *game, float dt) {
         game->payoutPosition = m->waypoint;
         award(game, 15);
         ++m->fixes;
+        if (m->fixes == 1) {
+            game->dispatch = "Mercy Six: Signal received. Following your lights.";
+            game->dispatchTime = 3.0f;
+        }
         if (m->fixes < SURVEY_GATES) {
-            static const Vector2 route[] = {{-270,-210}, {220,-270}};
+            static const Vector2 route[] = {{-820,-490}, {620,-670}};
             m->waypoint = Vector2Add(m->waypoint, route[m->fixes - 1]);
         } else {
             m->stage = MISSION_RELAYS;
@@ -106,12 +110,27 @@ void drawMission(const Game *game) {
     const Mission *m = &game->mission;
     if (m->stage != MISSION_SURVEY && m->stage != MISSION_ESCORT) return;
     float t = (float)game->elapsedTime;
+    if (m->stage == MISSION_SURVEY) {
+        // Three inward-facing transmitter heads leave the flight path open.
+        for (int i = 0; i < 3; ++i) {
+            Vector2 radial = direction(-PI / 2 + i * 2 * PI / 3);
+            Vector2 wing = {-radial.y, radial.x};
+            Vector2 base = Vector2Add(m->waypoint, Vector2Scale(radial, 70));
+            Vector2 lamp = Vector2Subtract(base, Vector2Scale(radial, 12));
+            DrawLineEx(Vector2Subtract(base, Vector2Scale(wing, 10)),
+                       Vector2Add(base, Vector2Scale(wing, 10)), 7, (Color){90,107,118,255});
+            DrawLineEx(base, lamp, 6, (Color){139,154,156,255});
+            float glow = 0.7f + 0.3f * cosf(t * 3 - i * 2 * PI / 3);
+            DrawCircleGradient(lamp, 13, Fade(beacon, 0.45f * glow), Fade(beacon, 0));
+            DrawCircleV(lamp, 3, Fade(beacon, glow));
+        }
+        return;
+    }
     DrawRing(m->waypoint, 43, 45, 0, 360, 40, Fade(beacon, 0.60f));
     for (int i = 0; i < 3; ++i) {
         float angle = i * 120 + t * 19;
         DrawRing(m->waypoint, 55, 58, angle, angle + 32, 12, beacon);
     }
-    if (m->stage != MISSION_ESCORT) return;
     if (m->escortLeg == 0 && m->loadingTime > 0)
         DrawRing(m->waypoint, 48, 52, -90, -90 + 360 * m->loadingTime / cargoLoadDuration, 48, AMBER);
     Vector2 axis = Vector2Normalize(Vector2Subtract(m->waypoint, m->transport));
