@@ -12,8 +12,8 @@
 
 static void submitScoreIfNeeded(Game *game) {
     if (game->scoreSubmitted || game->score <= 0) return;
-    leaderboardAddScore(&game->leaderboard, game->playerName, game->score);
-    game->scoreSubmitted = true;
+    game->scoreSubmitted = leaderboardAddScore(&game->leaderboard, game->playerName, game->score);
+
 }
 
 static void updateMenu(Game *game) {
@@ -50,9 +50,8 @@ static void handleGameState(Game *game) {
         if (nameEntryBack()) {
             PlaySound(game->menu->click_sfx);
             game->currentState = STATE_MENU;
-        } else if (nameEntryLaunch()) {
+        } else if (nameEntryLaunch(game)) {
             PlaySound(game->menu->click_sfx);
-            if (game->playerName[0] == '\0') strcpy(game->playerName, "PLAYER");
             game->currentState = STATE_GAME;
             resetRun(game);
             playScene(game, SCENE_LAUNCH);

@@ -1,9 +1,8 @@
 #include "widgets.h"
 #include "../arena.h"
 
-void uiBackdrop(const Game *game, float time) {
-    if (IsTextureValid(game->drydock)) {
-        Texture2D plate = game->drydock;
+void uiDockLayer(Texture2D plate, float time) {
+    if (IsTextureValid(plate)) {
         float zoom = 1.04f;
         float fit = fmaxf((float)SCREEN_WIDTH / plate.width, (float)SCREEN_HEIGHT / plate.height) * zoom;
         float w = plate.width * fit, h = plate.height * fit;
@@ -11,7 +10,12 @@ void uiBackdrop(const Game *game, float time) {
         float y = (SCREEN_HEIGHT - h) * (0.5f + 0.18f * cosf(time * 0.12f));
         DrawTexturePro(plate, (Rectangle){0,0,(float)plate.width,(float)plate.height},
                        (Rectangle){x,y,w,h}, (Vector2){0}, 0, WHITE);
-    } else {
+    }
+}
+
+void uiBackdrop(const Game *game, float time) {
+    if (IsTextureValid(game->drydock)) uiDockLayer(game->drydock,time);
+    else {
         drawArenaBackdrop((Camera2D){.target={2100,1600}}, game->sky);
     }
     DrawRectangleGradientH(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){4,10,17,170}, (Color){5,12,21,35});

@@ -148,15 +148,18 @@ static void spawnScout(Game *game) {
 static void updateScouts(Game *game) {
     const FlightRules *rules = &flightRules[game->settings.difficulty];
     Elite *carrier = &game->elites[MAX_ELITES - 1];
-    bool duel = carrier->unlocked && carrier->ship.lives > 0 &&
-                onScreen(game->camera, carrier->ship.position, -160.0f);
+    bool duel = carrier->unlocked && carrier->ship.lives > 0;
     int escorts = 0;
     for (int i = 0; duel && i < MAX_ENEMIES; ++i) {
         Ship *scout = &game->scouts[i];
         if (!scout->lives) continue;
         if (escorts++ == 0) continue;
-        burst(game, scout->position, CYAN, 5);
-        scout->lives = 0;
+        scout->previous = scout->position;
+        Vector2 away = Vector2Normalize(Vector2Subtract(scout->position, game->player.position));
+        if (Vector2LengthSqr(away) < 0.01f) away = (Vector2){1,0};
+        scout->heading = away;
+        scout->position = Vector2Add(scout->position, Vector2Scale(away, 650 * STEP));
+        if (!onScreen(game->camera,scout->position,-40)) scout->lives = 0;
     }
     game->spawnTimer -= STEP;
     if (game->spawnTimer <= 0.0f) {
@@ -164,10 +167,14 @@ static void updateScouts(Game *game) {
         game->spawnTimer = duel ? 12.0f : (2.1f - 0.32f * game->wardensCleared) * rules->spawnInterval;
     }
 
+    int activeEscorts = 0;
     for (int i = 0; i < MAX_ENEMIES; ++i) {
         Ship *scout = &game->scouts[i];
         if (!scout->lives) continue;
-        Vector2 toward = Vector2Normalize(Vector2Subtract(game->player.position, scout->position));
+        if (duel && activeEscorts++ > 0) continue;
+        Vector2 pursuit = game->mission.stage == MISSION_ESCORT && i % 3 == 0 ?
+                          game->mission.transport : game->player.position;
+        Vector2 toward = Vector2Normalize(Vector2Subtract(pursuit, scout->position));
         Vector2 separation = {0};
         for (int other = 0; other < MAX_ENEMIES; ++other) {
             if (i == other || !game->scouts[other].lives) continue;
@@ -188,10 +195,19 @@ static void updateScouts(Game *game) {
     }
 }
 
-static bool hitShip(const Shot *shot, const Ship *ship, float radius) {
-    Vector2 relativeStart = Vector2Subtract(shot->previous, ship->previous);
-    Vector2 relativeEnd = Vector2Subtract(shot->position, ship->position);
-    return distanceToSegment((Vector2){0}, relativeStart, relativeEnd) <= shot->radius + radius;
+// Return the first contact along this tick's relative motion.
+static float contactTime(const Shot *shot, const Ship *ship, float radius) {
+    Vector2 start = Vector2Subtract(shot->previous, ship->previous);
+    Vector2 end = Vector2Subtract(shot->position, ship->position);
+    Vector2 travel = Vector2Subtract(end,start);
+    float combined = shot->radius + radius;
+    float c = Vector2LengthSqr(start) - combined * combined;
+    if (c <= 0) return 0;
+    float a = Vector2LengthSqr(travel), b = Vector2DotProduct(start,travel);
+    float discriminant = b*b - a*c;
+    if (a == 0 || b >= 0 || discriminant < 0) return INFINITY;
+    float t = c / (-b + sqrtf(discriminant));
+    return t <= 1 ? t : INFINITY;
 }
 
 static void updateShots(Game *game) {
@@ -210,33 +226,35 @@ static void updateShots(Game *game) {
         if (shot->owner >= 0) {
             if (!onScreen(game->camera, shot->position, -24.0f)) {
                 shot->life = 0.0f;
-            } else if (hitShip(shot, &game->player, PILOT_RADIUS)) {
+            } else if (isfinite(contactTime(shot, &game->player, PILOT_RADIUS))) {
                 shot->life = 0.0f;
                 damagePlayer(game, "Enemy bolt");
             }
             continue;
         }
 
-        for (int scout = 0; scout < MAX_ENEMIES; ++scout) {
-            Ship *target = &game->scouts[scout];
-            if (!target->lives || !hitShip(shot, target, SCOUT_RADIUS)) continue;
-            shot->life = 0.0f;
-            destroyScout(game, target);
-            break;
+        float first = INFINITY;
+        int scoutHit = -1, eliteHit = -1;
+        for (int i = 0; i < MAX_ENEMIES; ++i) {
+            if (!game->scouts[i].lives) continue;
+            float t = contactTime(shot,&game->scouts[i],SCOUT_RADIUS);
+            if (t < first) { first = t; scoutHit = i; }
         }
-        if (shot->life <= 0.0f) continue;
-
-        for (int elite = 0; elite < MAX_ELITES; ++elite) {
-            Elite *target = &game->elites[elite];
-            if (!target->unlocked || target->ship.lives <= 0 || !hitShip(shot, &target->ship, eliteRadius(elite))) continue;
-            if (!(shot->visibleTargets & (1u << elite)) &&
-                !onScreen(game->camera, target->ship.position, -eliteRadius(elite) * 1.2f)) continue;
-            shot->life = 0.0f;
-            bool exposed = target->phase == ELITE_RECOVERY;
-            damageElite(game, elite, exposed ? 2 : 1);
-            burst(game, shot->position, exposed ? CYAN : AMBER, 4);
-            break;
+        for (int i = 0; i < MAX_ELITES; ++i) {
+            Elite *target = &game->elites[i];
+            if (!target->unlocked || target->ship.lives <= 0) continue;
+            float t = contactTime(shot,&target->ship,eliteRadius(i));
+            if (t >= first) continue;
+            if (!(shot->visibleTargets & (1u << i)) &&
+                !onScreen(game->camera,target->ship.position,-eliteRadius(i)*1.2f)) continue;
+            first = t;
+            eliteHit = i;
         }
+        if (eliteHit >= 0) {
+            damageElite(game,eliteHit,game->elites[eliteHit].phase == ELITE_RECOVERY ? 2 : 1);
+            burst(game,Vector2Lerp(shot->previous,shot->position,first),CYAN,4);
+        } else if (scoutHit >= 0) destroyScout(game,&game->scouts[scoutHit]);
+        if (isfinite(first)) shot->life = 0;
     }
 }
 
@@ -319,6 +337,7 @@ void advanceFlight(Game *game, double frameTime, Vector2 move, Vector2 aim, bool
     game->accumulator += (float)fmin(activeTime, 0.10);
     game->pulseQueued |= pulse;
     while (game->accumulator >= STEP && game->player.lives > 0 && !game->missionCleared) {
+        ++game->flightTick;
         step(game, move, aim, game->pulseQueued);
         game->pulseQueued = false;
         game->accumulator -= STEP;
@@ -377,6 +396,7 @@ void resetRunSeeded(Game *game, uint32_t seed) {
     game->accumulator = 0.0f;
     game->outcomeTime = 0.0f;
     game->elapsedTime = 0.0f;
+    game->flightTick = 0;
     game->dispatchTime = 0;
     game->dispatch = NULL;
     game->timedOut = false;
@@ -411,6 +431,8 @@ void initializeGame(Game *game) {
     *game = (Game){ .showRadar = true, .settings = DEFAULT_SETTINGS };
     game->transportTexture = loadShip("src/Assets/Siege/mercy-six.png");
     game->gateTexture = loadShip("src/Assets/Siege/jump-gate.png");
+    game->hatch = loadShip("src/Assets/Siege/hatch.png");
+    game->crewPortraits = loadShip("src/Assets/Siege/crew.png");
     game->drydock = loadShip("src/Assets/Siege/drydock.png");
     game->sky = loadShip("src/Assets/Siege/deep-field.png");
     game->pilotTexture = loadShip("src/Assets/Siege/pilot.png");
@@ -437,6 +459,8 @@ void shutdownGame(Game *game) {
     UnloadTexture(game->gateTexture);
     UnloadTexture(game->sky);
     UnloadTexture(game->drydock);
+    UnloadTexture(game->crewPortraits);
+    UnloadTexture(game->hatch);
     UnloadTexture(game->pilotTexture);
     UnloadTexture(game->scoutTexture);
     UnloadTexture(game->wardenTexture);

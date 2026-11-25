@@ -4,7 +4,7 @@
 #include "../flight/mission.h"
 #include "../arena.h"
 
-static const float sceneDuration = 2.8f;
+static const float sceneDuration = 7.0f;
 
 void playScene(Game *game, FlightScene scene) {
     game->scene = scene;
@@ -75,8 +75,34 @@ void drawScene(const Game *game) {
     }
     DrawRectangle(0, 0, SCREEN_WIDTH, 106, UI_INK);
     DrawRectangle(0, SCREEN_HEIGHT - 122, SCREEN_WIDTH, 122, UI_INK);
-    uiLabel(game, line, 92, SCREEN_HEIGHT - 84, 29, UI_PAPER);
-    uiLabel(game, "Enter to skip", SCREEN_WIDTH - 278, SCREEN_HEIGHT - 79, 21, UI_MUTED);
+    bool reply = t >= 3.4f;
+    bool captain = reply;
+    switch (game->scene) {
+    case SCENE_LAUNCH:
+        line = reply ? "Our ward is running on reserve. We'll follow your lights."
+                     : "Mercy Six, your corridor is dark. Sending a pilot ahead.";
+        break;
+    case SCENE_ESCORT:
+        line = reply ? "That's the medicine. Hold them off until the crane clears."
+                     : "Berth three is yours. The last cold crate is on the hook.";
+        break;
+    case SCENE_CARRIER:
+        line = reply ? "We're under the gate. You have a clear line past our bow."
+                     : "Carrier batteries are turning. Mercy Six, hold at the pier.";
+        break;
+    case SCENE_CLEAR:
+        line = reply ? "All beds accounted for. Lead, we have the other side."
+                     : "Mercy Six, your signal dropped. Do you read?";
+        break;
+    default: break;
+    }
+    if (IsTextureValid(game->crewPortraits)) {
+        float w = game->crewPortraits.width * 0.5f;
+        DrawTexturePro(game->crewPortraits,(Rectangle){captain ? 0 : w,0,w,(float)game->crewPortraits.height},
+                       (Rectangle){74,SCREEN_HEIGHT-145,136,136},(Vector2){0},0,WHITE);
+    }
+    uiLabel(game,captain ? "CAPT. SEN  /  MERCY SIX" : "VALE  /  DOCK CONTROL",232,SCREEN_HEIGHT-104,21,UI_ICE);
+    uiLabel(game,line,232,SCREEN_HEIGHT-66,26,UI_PAPER);
     float fade = fmaxf(1 - t * 4, (p - 0.91f) / 0.09f);
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, Clamp(fade, 0, 1)));
 }

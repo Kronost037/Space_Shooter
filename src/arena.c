@@ -1,6 +1,6 @@
 #include "arena.h"
+#include "flight/flight.h"
 
-#define AMBER ((Color){255,194,98,255})
 
 static unsigned starHash(unsigned seed) {
     seed ^= seed >> 16;
@@ -67,6 +67,11 @@ void drawSectorLandmarks(const Game *game, Camera2D camera) {
                 Vector2 p = {center.x + lamp * 44.0f - 152.0f, center.y + 105.0f - lamp * 28.0f};
                 DrawCircleV(p, 3, Fade((Color){133,211,206,255}, 0.24f + 0.65f * phase));
             }
+        }
+        if (site == MAX_ELITES - 1) {
+            drawShip(game->gateTexture, center, (Vector2){0,-1}, 430,
+                     (Color){145,165,179,255}, steel);
+            continue;
         }
         if (site == 0) {
             for (int arc = 0; arc < 5; ++arc)

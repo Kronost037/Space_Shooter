@@ -15,3 +15,5 @@ Atkinson Hyperlegible Regular by the Braille Institute of America is distributed
 Mercy Six and the industrial jump gate are original generated game artwork. Barlow Medium by Jeremy Tribby is distributed under the SIL Open Font License in `src/Assets/Siege/Barlow-OFL.txt`.
 
 The orbital drydock backdrop is original generated artwork for the flight deck.
+
+Captain Sen and dock controller Vale are original generated portraits. The foreground hatch is a masked layer of the original drydock artwork.

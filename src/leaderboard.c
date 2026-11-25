@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
+#include <unistd.h>
+#include <errno.h>
 #include "game.h"
 #include "leaderboard.h"
 #include "ui/widgets.h"
@@ -80,6 +83,7 @@ void leaderboardLoad(Leaderboard *lb) {
     lb->page = 0;
     
     FILE *file = fopen(LB_FILE_PATH, "rb");
+    if (!file && errno == ENOENT) file = fopen(".game/leaderboard.bin", "rb");
     if (!file) {
         return;
     }
@@ -121,46 +125,42 @@ void leaderboardLoad(Leaderboard *lb) {
     lb->page = 0;
 }
 
-void leaderboardSave(const Leaderboard *lb) {
-    if (!lb) return;
-
+bool leaderboardSave(const Leaderboard *lb) {
     ensureDirectory();
-
-    FILE *file = fopen(LB_FILE_PATH, "wb");
-    if (!file) return;
-    
-    uint32_t magic = LB_MAGIC_HEADER;
-    uint32_t version = LB_VERSION;
-
-    fwrite(&magic, sizeof(uint32_t), 1, file);
-    fwrite(&version, sizeof(uint32_t), 1, file);
-    fwrite(&lb->count, sizeof(int), 1, file);
-
-    if (lb->count > 0) {
-        fwrite(lb->entries, sizeof(LeaderboardEntry), lb->count, file);
-    }
-
-    fclose(file);
+    char temporary[] = LB_FILE_PATH ".XXXXXX";
+    int fd = mkstemp(temporary);
+    if (fd < 0) return false;
+    FILE *file = fdopen(fd, "wb");
+    if (!file) { close(fd); remove(temporary); return false; }
+    uint32_t header[] = {LB_MAGIC_HEADER, LB_VERSION};
+    bool ok = fwrite(header,sizeof header,1,file) == 1 &&
+              fwrite(&lb->count,sizeof lb->count,1,file) == 1 &&
+              fwrite(lb->entries,sizeof *lb->entries,(size_t)lb->count,file) == (size_t)lb->count;
+    if (fclose(file) != 0) ok = false;
+    if (ok && rename(temporary,LB_FILE_PATH) == 0) return true;
+    remove(temporary);
+    return false;
 }
 
-void leaderboardAddScore(Leaderboard *lb, const char *name, int score) {
-    if (!lb) return;
-
+bool leaderboardAddScore(Leaderboard *lb, const char *name, int score) {
+    if (!lb) return false;
     LeaderboardEntry entry = { .score = score, .timestamp = time(NULL) };
     snprintf(entry.name, sizeof entry.name, "%s", name);
     if (lb->count == MAX_ENTRIES) {
-        if (compareEntries(&entry, &lb->entries[MAX_ENTRIES - 1]) >= 0) return;
+        if (compareEntries(&entry, &lb->entries[MAX_ENTRIES - 1]) >= 0) return true;
         lb->entries[MAX_ENTRIES - 1] = entry;
     } else {
         if (lb->count == lb->capacity) {
             int capacity = lb->capacity > 0 ? lb->capacity * 2 : INITIAL_CAPACITY;
-            if (!reserveEntries(lb, capacity < MAX_ENTRIES ? capacity : MAX_ENTRIES)) return;
+            if (!reserveEntries(lb, capacity < MAX_ENTRIES ? capacity : MAX_ENTRIES)) return false;
         }
         lb->entries[lb->count++] = entry;
     }
 
     qsort(lb->entries, (size_t)lb->count, sizeof *lb->entries, compareEntries);
-    leaderboardSave(lb);
+    if (leaderboardSave(lb)) return true;
+    leaderboardLoad(lb);
+    return false;
 }
 
 static const Rectangle previous = {596, 726, 178, 54};

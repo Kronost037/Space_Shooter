@@ -113,7 +113,7 @@ struct S_game {
     Leaderboard leaderboard;
     bool scoreSubmitted;
 
-    Texture2D sky, drydock, transportTexture, gateTexture;
+    Texture2D crewPortraits, hatch, sky, drydock, transportTexture, gateTexture;
     Vector2 velocity, thrust, gunAim, payoutPosition;
     const char *damageCause;
     Texture2D pilotTexture;
@@ -138,6 +138,7 @@ struct S_game {
     float accumulator;
     float outcomeTime;
     double elapsedTime;
+    uint64_t flightTick;
     float fireCooldown;
     float spawnTimer;
     float playerHitCooldown;

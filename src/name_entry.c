@@ -6,8 +6,9 @@
 static const Rectangle launch = {756, 501, 315, 60};
 static const Rectangle back = {430, 501, 305, 60};
 
-bool nameEntryLaunch(void) {
-    return uiClicked(launch) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
+bool nameEntryLaunch(const Game *game) {
+    return game->playerName[strspn(game->playerName, " ")] &&
+           (uiClicked(launch) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER));
 }
 
 bool nameEntryBack(void) {
@@ -31,9 +32,10 @@ void drawNameEntry(Game *game) {
     uiTitle(game, "Callsign", 430, 332, 50);
     DrawRectangleRec((Rectangle){430,410,641,65}, (Color){24,41,55,255});
     const char *name = game->playerName;
-    uiLabel(game, *name ? name : "PLAYER", 450, 424, 34, *name ? UI_PAPER : UI_MUTED);
+    uiLabel(game, *name ? name : "Enter callsign", 450, 424, 34, *name ? UI_PAPER : UI_MUTED);
     float end = *name ? 450 + uiTextWidth(game, name, 34) : 441;
     if (fmodf(t, 1.0f) < 0.6f) DrawRectangle((int)end + 3, 429, 2, 30, UI_ICE);
     uiButton(game, back, "Back", CheckCollisionPointRec(GetMousePosition(), back));
-    uiButton(game, launch, "Launch", CheckCollisionPointRec(GetMousePosition(), launch));
+    if (name[strspn(name, " ")] == 0) uiLabel(game, "Launch", launch.x + 19, launch.y + 13, 25, UI_MUTED);
+    else uiButton(game, launch, "Launch", CheckCollisionPointRec(GetMousePosition(), launch));
 }
