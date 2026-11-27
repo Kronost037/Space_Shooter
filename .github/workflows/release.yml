@@ -15,15 +15,16 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 xorg-dev xvfb xdotool
       - name: Download Raylib SDKs
         run: |
-          base=https://github.com/raysan5/raylib/releases/download/6.0
           curl -fsSL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz -o linux.tgz
-          curl -fsSL "$base/raylib-6.0_win64_mingw-w64.zip" -o windows.zip
           tar xzf linux.tgz
-          unzip -q windows.zip
           cmake -S raylib-6.0 -B sdk-build -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/raylib-6.0_linux_amd64"
           cmake --build sdk-build --parallel 4
           cmake --install sdk-build
           cp raylib-6.0/LICENSE raylib-6.0_linux_amd64/LICENSE
+          cmake -S raylib-6.0 -B windows-build -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/raylib-6.0_win64_mingw-w64"
+          cmake --build windows-build --parallel 4
+          cmake --install windows-build
+          cp raylib-6.0/LICENSE raylib-6.0_win64_mingw-w64/LICENSE
       - name: Verify flight and native input
         run: |
           ln -s raylib-6.0_linux_amd64 raylib
@@ -54,10 +55,20 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: packages
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-mesa
       - shell: pwsh
         run: |
           Expand-Archive (Get-ChildItem *.zip).FullName game
           $exe = Get-ChildItem game -Recurse -Filter SectorSiege.exe
+          # Hosted runners have no hardware OpenGL driver. Use Mesa for this smoke test.
+          $mesa = Get-ChildItem "$env:RUNNER_TEMP" -Recurse -Filter opengl32.dll -ErrorAction SilentlyContinue | Where-Object FullName -Match 'ucrt64' | Select-Object -First 1
+          if ($mesa) {
+            Copy-Item $mesa.FullName $exe.DirectoryName
+            $env:Path = "$($mesa.DirectoryName);$($mesa.DirectoryName)\..\bin;$env:Path"
+          }
           $p = Start-Process $exe.FullName -PassThru
           try {
             Start-Sleep -Seconds 5

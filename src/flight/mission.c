@@ -5,8 +5,9 @@ static const Color beacon = {134,223,207,255};
 static const float cargoLoadDuration = 1.2f;
 
 void startMission(Game *game, Vector2 launch) {
-    game->mission = (Mission){.stage = MISSION_SURVEY,
-                              .waypoint = Vector2Add(launch, (Vector2){-190,-100})};
+    game->mission = (Mission){0};
+    game->mission.stage = MISSION_SURVEY;
+    game->mission.waypoint = Vector2Add(launch, (Vector2){-190,-100});
 }
 
 void beginEscort(Game *game, Vector2 relay) {
