@@ -41,9 +41,7 @@ jobs:
           tar xzf dist/*.tar.gz -C smoke
           exe=$(realpath smoke/*/SectorSiege)
           cd /tmp
-          set +e
-          timeout 5 xvfb-run -a "$exe"
-          test "$?" = 124
+          timeout 30 xvfb-run -a "$exe" --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: packages
@@ -55,26 +53,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: packages
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          install: mingw-w64-ucrt-x86_64-mesa
       - shell: pwsh
         run: |
           Expand-Archive (Get-ChildItem *.zip).FullName game
           $exe = Get-ChildItem game -Recurse -Filter SectorSiege.exe
-          # Hosted runners have no hardware OpenGL driver. Use Mesa for this smoke test.
-          $mesa = Get-ChildItem "$env:RUNNER_TEMP" -Recurse -Filter opengl32.dll -ErrorAction SilentlyContinue | Where-Object FullName -Match 'ucrt64' | Select-Object -First 1
-          if ($mesa) {
-            Copy-Item $mesa.FullName $exe.DirectoryName
-            $env:Path = "$($mesa.DirectoryName);$($mesa.DirectoryName)\..\bin;$env:Path"
-          }
-          $p = Start-Process $exe.FullName -PassThru
-          try {
-            Start-Sleep -Seconds 5
-            $p.Refresh()
-            if ($p.HasExited -or $p.MainWindowHandle -eq 0) { throw 'Game window failed to open' }
-          } finally { if (!$p.HasExited) { $p.Kill() } }
+          # The hosted Windows runner needs a software OpenGL implementation.
+          curl.exe -fsSL https://github.com/pal1000/mesa-dist-win/releases/download/26.3.1/mesa3d-26.3.1-release-msvc.7z -o mesa.7z
+          7z x mesa.7z -omesa -y | Out-Null
+          $gl = Get-ChildItem mesa -Recurse -Filter opengl32.dll | Where-Object { $_.Directory.Name -eq 'x64' } | Select-Object -First 1
+          if (!$gl) { throw 'Missing x64 Mesa driver' }
+          Copy-Item "$($gl.DirectoryName)/*.dll" $exe.DirectoryName
+          $env:GALLIUM_DRIVER = 'llvmpipe'
+          $p = Start-Process $exe.FullName -ArgumentList '--smoke-test' -RedirectStandardOutput game.log -RedirectStandardError errors.log -PassThru
+          if (!$p.WaitForExit(60000)) { $p.Kill(); throw 'Game smoke test timed out' }
+          Get-Content game.log,errors.log
+          if ($p.ExitCode -ne 0) { throw "Game smoke test failed ($($p.ExitCode))" }
   publish:
     needs: windows-smoke
     runs-on: ubuntu-latest

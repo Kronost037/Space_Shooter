@@ -113,7 +113,9 @@ static void handleGameState(Game *game) {
     }
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    bool smoke = argc == 2 && strcmp(argv[1], "--smoke-test") == 0;
+    int presented = 0;
     if (!FileExists("src/Assets/Siege/pilot.png")) ChangeDirectory(GetApplicationDirectory());
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter | Sector Siege");
@@ -154,11 +156,14 @@ int main(void) {
         BeginDrawing();
         renderFrame(&game, frame, viewport);
         EndDrawing();
+        if (smoke && ++presented == 12) break;
     }
 
+    bool verified = !smoke || (presented == 12 && IsTextureValid(game.drydock) &&
+                               IsTextureValid(game.pilotTexture) && IsTextureValid(game.crewPortraits));
     UnloadRenderTexture(frame);
     shutdownGame(&game);
     CloseAudioDevice();
     CloseWindow();
-    return 0;
+    return verified ? 0 : 1;
 }
