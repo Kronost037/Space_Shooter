@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install toolchains
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 xorg-dev xvfb xdotool
+        run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64 xorg-dev xvfb xdotool
       - name: Download Raylib SDKs
         run: |
           curl -fsSL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz -o linux.tgz
@@ -21,7 +21,7 @@ jobs:
           cmake --build sdk-build --parallel 4
           cmake --install sdk-build
           cp raylib-6.0/LICENSE raylib-6.0_linux_amd64/LICENSE
-          cmake -S raylib-6.0 -B windows-build -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/raylib-6.0_win64_mingw-w64"
+          cmake -S raylib-6.0 -B windows-build -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/raylib-6.0_win64_mingw-w64"
           cmake --build windows-build --parallel 4
           cmake --install windows-build
           cp raylib-6.0/LICENSE raylib-6.0_win64_mingw-w64/LICENSE
