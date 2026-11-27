@@ -75,7 +75,7 @@ static void handleGameState(Game *game) {
             if (game->mission.stage == MISSION_ESCORT) playScene(game, SCENE_ESCORT);
             if (game->mission.stage == MISSION_CARRIER) playScene(game, SCENE_CARRIER);
         }
-        if (game->outcomeTime >= 0.65f) {
+        if (game->outcomeTime >= (game->player.lives <= 0 ? 1.20f : 0.65f)) {
             game->currentState = STATE_GAME_OVER;
             ShowCursor();
             ResumeMusicStream(game->menu->bg_song);
@@ -114,6 +114,7 @@ static void handleGameState(Game *game) {
 }
 
 int main(void) {
+    if (!FileExists("src/Assets/Siege/pilot.png")) ChangeDirectory(GetApplicationDirectory());
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter | Sector Siege");
     if (!IsWindowReady()) return 1;

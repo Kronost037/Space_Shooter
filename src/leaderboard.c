@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include <unistd.h>
+#include "save_file.h"
 #include <errno.h>
 #include "game.h"
 #include "leaderboard.h"
@@ -127,17 +127,15 @@ void leaderboardLoad(Leaderboard *lb) {
 
 bool leaderboardSave(const Leaderboard *lb) {
     ensureDirectory();
-    char temporary[] = LB_FILE_PATH ".XXXXXX";
-    int fd = mkstemp(temporary);
-    if (fd < 0) return false;
-    FILE *file = fdopen(fd, "wb");
-    if (!file) { close(fd); remove(temporary); return false; }
+    char temporary[512];
+    FILE *file = openScoreTemporary(temporary, sizeof temporary);
+    if (!file) return false;
     uint32_t header[] = {LB_MAGIC_HEADER, LB_VERSION};
     bool ok = fwrite(header,sizeof header,1,file) == 1 &&
               fwrite(&lb->count,sizeof lb->count,1,file) == 1 &&
               fwrite(lb->entries,sizeof *lb->entries,(size_t)lb->count,file) == (size_t)lb->count;
     if (fclose(file) != 0) ok = false;
-    if (ok && rename(temporary,LB_FILE_PATH) == 0) return true;
+    if (ok && replaceSaveFile(temporary, LB_FILE_PATH)) return true;
     remove(temporary);
     return false;
 }

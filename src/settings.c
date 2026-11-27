@@ -1,3 +1,4 @@
+#include "save_file.h"
 #include "settings.h"
 #include "menu.h"
 #include "ui/widgets.h"
@@ -42,7 +43,7 @@ static void saveSettings(const Settings *s) {
     int written = fprintf(f, "v1 %d %d %d %d %d %d\n", (int)s->difficulty,
                           (int)s->timerEnabled, s->timerMinutes, s->volume, s->music, s->effects);
     int closed = fclose(f);
-    if (written > 0 && closed == 0 && rename(SETTINGS_PATH ".tmp", SETTINGS_PATH) == 0) return;
+    if (written > 0 && closed == 0 && replaceSaveFile(SETTINGS_PATH ".tmp", SETTINGS_PATH)) return;
     remove(SETTINGS_PATH ".tmp");
 }
 

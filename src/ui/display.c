@@ -45,7 +45,9 @@ void renderFrame(Game *game, RenderTexture2D frame, Rectangle viewport) {
     if (inFlight) {
         Camera2D camera = game->camera;
         camera.target = Vector2Lerp(game->previousCameraTarget, camera.target, Clamp(game->accumulator * 120, 0, 1));
-        drawPanel(game, camera);
+        if (game->player.lives > 0) drawPanel(game, camera);
+        else DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+                           Fade(BLACK, 0.88f * Clamp((game->outcomeTime - 0.40f) / 0.80f, 0, 1)));
         if (game->currentState == STATE_PAUSE) drawPause(game);
     } else if (game->currentState == STATE_GAME) {
         drawScene(game);

@@ -397,6 +397,18 @@ int main(void) {
     snapshot(&game, world, STATE_SETTING, "screenshots/settings-640.png");
     resizeWindow(1600, 700);
     snapshot(&game, world, STATE_MENU, "screenshots/menu-wide.png");
+    resetRunSeeded(&game, 37);
+    game.settings.difficulty = HARD;
+    strcpy(game.playerName, "ASTER");
+    game.score = 1234;
+    game.scoreSubmitted = true;
+    game.player.lives = 1;
+    damagePlayer(&game, "Enemy bolt");
+    assert(game.player.lives == 0);
+    advanceFlight(&game, 0.1, (Vector2){0}, (Vector2){0}, false);
+    snapshot(&game, world, STATE_GAME, "screenshots/hull-loss.png");
+    resizeWindow(640,480);
+    snapshot(&game, world, STATE_GAME_OVER, "screenshots/debrief-loss-compact.png");
     UnloadRenderTexture(world);
     shutdownGame(&game);
     CloseAudioDevice();

@@ -123,6 +123,19 @@ void drawGame(Game *game) {
             DrawRing(pilot, 32.0f, 34.5f, 0, 360, 32, Fade(CYAN, game->playerHitCooldown / 1.30f));
         }
     }
+    if (game->player.lives <= 0) {
+        float t = game->outcomeTime;
+        Vector2 origin = game->player.position;
+        float heat = expf(-5.5f * t);
+        DrawCircleGradient(origin, 24 + 70 * (1 - heat), Fade(AMBER, heat), Fade(CORAL, 0));
+        for (int i = 0; i < 9; ++i) {
+            Vector2 axis = direction(game->hullAngle + i * 2.39996f);
+            float distance = (1 - expf(-2.4f * t)) * (48 + 11 * (i % 5));
+            Vector2 tip = Vector2Add(origin, Vector2Scale(axis, distance));
+            DrawLineEx(Vector2Subtract(tip, Vector2Scale(axis, 4 + 7 * heat)), tip,
+                       1.6f + i % 3, Fade(AMBER, expf(-2.8f * t)));
+        }
+    }
     EndMode2D();
 
 }

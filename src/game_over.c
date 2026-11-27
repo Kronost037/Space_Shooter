@@ -19,12 +19,15 @@ void updateGameOver(Game *game) {
 void drawGameOver(Game *game) {
     uiBackdrop(game, (float)GetTime());
     const char *title = game->missionCleared ? "Corridor open" : game->timedOut ? "Time up" : "Signal lost";
-    uiLabel(game, title, 108, 244, 37, game->missionCleared ? UI_ICE : UI_AMBER);
-    uiTitle(game, TextFormat("%d", game->score), 98, 291, 125);
-    uiLabel(game, "points", 109, 421, 27, UI_MUTED);
-    if (!game->missionCleared && !game->timedOut && game->damageCause)
-        uiLabel(game, game->damageCause, 109, 478, 23, UI_MUTED);
-    if (game->score > 0 && !game->scoreSubmitted) uiLabel(game, "Record could not be saved", 109, 510, 21, UI_AMBER);
+    DrawRectangleGradientH(0, 0, 980, SCREEN_HEIGHT, (Color){5,12,19,220}, (Color){5,12,19,0});
+    uiLabel(game, title, 108, 225, 32, game->missionCleared ? UI_ICE : UI_AMBER);
+    uiTitle(game, TextFormat("%d", game->score), 100, 273, 108);
+    uiLabel(game, "points", 110 + uiTextWidth(game, TextFormat("%d", game->score), 108),
+            336, 28, UI_MUTED);
+    uiLabel(game, game->playerName, 108, 420, 34, UI_PAPER);
+    uiLabel(game, flightRules[game->settings.difficulty].name, 108, 468, 25, UI_MUTED);
+    if (game->score > 0 && !game->scoreSubmitted)
+        uiLabel(game, "Record could not be saved", 108, 510, 21, UI_AMBER);
     bool hoverBack = CheckCollisionPointRec(GetMousePosition(), back);
     uiAction(game, retry, "Fly again", !hoverBack);
     uiAction(game, back, "Main menu", hoverBack);

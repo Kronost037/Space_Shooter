@@ -1,0 +1,80 @@
+name: Release Sector Siege
+on:
+  push:
+    branches: [master]
+    paths: [VERSION]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchains
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 xorg-dev xvfb xdotool
+      - name: Download Raylib SDKs
+        run: |
+          base=https://github.com/raysan5/raylib/releases/download/6.0
+          curl -fsSL "$base/raylib-6.0_linux_amd64.tar.gz" -o linux.tgz
+          curl -fsSL "$base/raylib-6.0_win64_mingw-w64.zip" -o windows.zip
+          tar xzf linux.tgz
+          unzip -q windows.zip
+      - name: Verify flight and native input
+        run: |
+          ln -s raylib-6.0_linux_amd64 raylib
+          export LD_LIBRARY_PATH="$PWD/raylib/lib"
+          gcc build.c -o build
+          ./build
+          ./build --checks
+          sh tests/verify.sh
+      - name: Build and inspect packages
+        run: |
+          bash scripts/package.sh linux raylib-6.0_linux_amd64
+          CC=x86_64-w64-mingw32-gcc bash scripts/package.sh windows raylib-6.0_win64_mingw-w64
+          mkdir smoke
+          tar xzf dist/*.tar.gz -C smoke
+          exe=$(realpath smoke/*/SectorSiege)
+          cd /tmp
+          set +e
+          timeout 5 xvfb-run -a "$exe"
+          test "$?" = 124
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/*
+  windows-smoke:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+      - shell: pwsh
+        run: |
+          Expand-Archive (Get-ChildItem *.zip).FullName game
+          $exe = Get-ChildItem game -Recurse -Filter SectorSiege.exe
+          $p = Start-Process $exe.FullName -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            $p.Refresh()
+            if ($p.HasExited -or $p.MainWindowHandle -eq 0) { throw 'Game window failed to open' }
+          } finally { if (!$p.HasExited) { $p.Kill() } }
+  publish:
+    needs: windows-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+      - name: Publish verified archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(cat VERSION)
+          (cd dist && sha256sum *.zip *.tar.gz > SHA256SUMS.txt)
+          gh release create "v$version" --target "$GITHUB_SHA" --title "Sector Siege $version" --notes "Fly escort for Mercy Six through the Aster blockade. Extract the archive for your platform and launch SectorSiege. Includes the full campaign, portraits, flight records and four difficulty settings." dist/*
