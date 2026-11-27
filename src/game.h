@@ -112,6 +112,7 @@ struct S_game {
     bool timedOut;
     Leaderboard leaderboard;
     bool scoreSubmitted;
+    bool debriefMenuSelected;
 
     Texture2D crewPortraits, hatch, sky, drydock, transportTexture, gateTexture;
     Vector2 velocity, thrust, gunAim, payoutPosition;

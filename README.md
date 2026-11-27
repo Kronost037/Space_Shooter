@@ -39,4 +39,4 @@ gcc build.c -o build
 
 For a local Raylib build, run `./build --download raylib` before `./build`. It uses wget, unzip, CMake and X11 development libraries. Run `./build --checks && sh tests/verify.sh` for the flight checks and UI captures under Xvfb. The shell packaging script accepts a platform and an extracted official Raylib SDK. Use a MinGW-w64 compiler for the Windows target.
 
-See [ATTRIBUTION.md](ATTRIBUTION.md) for art, audio and font credits and [LICENSE](LICENSE) for the source license.
+The source code is covered by the [MIT License](LICENSE). See the [game content terms](GAME_CONTENT_LICENSE.md) for artwork, story, and original audio, and [ATTRIBUTION.md](ATTRIBUTION.md) for third-party credits and notices.

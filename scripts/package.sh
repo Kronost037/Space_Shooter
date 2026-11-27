@@ -18,7 +18,7 @@ case "$platform" in
 esac
 "${CC:-gcc}" -std=c17 -O2 -Wall -Wextra -Werror -I"$raylib/include" "${sources[@]}" "$raylib/lib/libraylib.a" "${libs[@]}" -o "$stage/$binary"
 cp -R src/Assets "$stage/src/"
-cp LICENSE README.md ATTRIBUTION.md "$stage/"
+cp LICENSE GAME_CONTENT_LICENSE.md README.md ATTRIBUTION.md "$stage/"
 cp "$raylib/LICENSE" "$stage/licenses/raylib.txt"
 if [[ $platform == windows ]]; then
     (cd "$temp" && python3 -m zipfile -c "$out/$name.zip" "$name")

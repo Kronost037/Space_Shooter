@@ -77,6 +77,7 @@ static void handleGameState(Game *game) {
         }
         if (game->outcomeTime >= (game->player.lives <= 0 ? 1.20f : 0.65f)) {
             game->currentState = STATE_GAME_OVER;
+            game->debriefMenuSelected = false;
             ShowCursor();
             ResumeMusicStream(game->menu->bg_song);
             submitScoreIfNeeded(game);
@@ -92,7 +93,10 @@ static void handleGameState(Game *game) {
         break;
     case STATE_LEADERBOARD:
         leaderboardUpdate(&game->leaderboard);
-        if (leaderboardBack()) game->currentState = STATE_MENU;
+        if (leaderboardBack()) {
+            PlaySound(game->menu->click_sfx);
+            game->currentState = STATE_MENU;
+        }
         break;
     case STATE_PAUSE: {
         Vector2 pointer = GetMousePosition();
