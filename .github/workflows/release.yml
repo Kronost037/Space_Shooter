@@ -2,7 +2,7 @@ name: Release Sector Siege
 on:
   push:
     branches: [master]
-    paths: [VERSION]
+    paths: [VERSION, '.github/workflows/release.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,10 +16,14 @@ jobs:
       - name: Download Raylib SDKs
         run: |
           base=https://github.com/raysan5/raylib/releases/download/6.0
-          curl -fsSL "$base/raylib-6.0_linux_amd64.tar.gz" -o linux.tgz
+          curl -fsSL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz -o linux.tgz
           curl -fsSL "$base/raylib-6.0_win64_mingw-w64.zip" -o windows.zip
           tar xzf linux.tgz
           unzip -q windows.zip
+          cmake -S raylib-6.0 -B sdk-build -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/raylib-6.0_linux_amd64"
+          cmake --build sdk-build --parallel 4
+          cmake --install sdk-build
+          cp raylib-6.0/LICENSE raylib-6.0_linux_amd64/LICENSE
       - name: Verify flight and native input
         run: |
           ln -s raylib-6.0_linux_amd64 raylib
