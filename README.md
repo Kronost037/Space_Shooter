@@ -4,7 +4,7 @@ The hospital ship Mercy Six has one jump left. Its ward is running on reserve, t
 
 ## Play
 
-Download the **Windows x64 ZIP** or **Linux x64 tar.gz** from [Releases](https://github.com/Kronost037/Space_Shooter/releases). Extract the whole archive to a writable folder. On Windows open **SectorSiege.exe**. On Linux run **./SectorSiege** from the extracted folder. The game includes its artwork, audio, fonts and Raylib. Linux needs an X11 or XWayland display and a working OpenGL driver.
+Download the **Windows x64 ZIP** or **Linux x64 tar.gz** from [Releases](https://github.com/Kronost037/sector_siege/releases). Extract the whole archive to a writable folder. On Windows open **SectorSiege.exe**. On Linux run **./SectorSiege** from the extracted folder. The game includes its artwork, audio, fonts and Raylib. Linux needs an X11 or XWayland display and a working OpenGL driver.
 
 Choose **Play**, enter your callsign and launch. **Medium** is the default difficulty. Easy gives you longer attack warnings. The optional timer counts active flight and pauses during radio scenes.
 

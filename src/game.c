@@ -415,7 +415,7 @@ void resetRunSeeded(Game *game, uint32_t seed) {
     game->scoreSubmitted = false;
     game->missionCleared = false;
     game->pulseQueued = false;
-    PauseMusicStream(game->menu->bg_song);
+    PauseMusicStream(game->menu.bg_song);
 }
 
 static Texture2D loadShip(const char *path) {
@@ -448,8 +448,7 @@ void initializeGame(Game *game) {
     game->bodyFont = LoadFontEx("src/Assets/Siege/Barlow-Medium.ttf", 72, NULL, 0);
     GenTextureMipmaps(&game->bodyFont.texture);
     SetTextureFilter(game->bodyFont.texture, TEXTURE_FILTER_TRILINEAR);
-    game->menu = malloc(sizeof *game->menu);
-    initializeMenu(game->menu);
+    initializeMenu(&game->menu);
     leaderboardInit(&game->leaderboard);
     leaderboardLoad(&game->leaderboard);
 }
@@ -471,9 +470,8 @@ void shutdownGame(Game *game) {
     UnloadSound(game->clearSound);
     UnloadSound(game->pulseSound);
     UnloadFont(game->bodyFont);
-    UnloadMusicStream(game->menu->bg_song);
-    UnloadSound(game->menu->hover_sfx);
-    UnloadSound(game->menu->click_sfx);
-    free(game->menu);
+    UnloadMusicStream(game->menu.bg_song);
+    UnloadSound(game->menu.hover_sfx);
+    UnloadSound(game->menu.click_sfx);
     leaderboardShutdown(&game->leaderboard);
 }

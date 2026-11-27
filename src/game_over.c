@@ -14,14 +14,14 @@ void updateGameOver(Game *game) {
     }
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_UP)) game->debriefMenuSelected = false;
     if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_DOWN)) game->debriefMenuSelected = true;
-    if (previous != game->debriefMenuSelected) PlaySound(game->menu->hover_sfx);
+    if (previous != game->debriefMenuSelected) PlaySound(game->menu.hover_sfx);
 
     bool activate = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE);
     if (uiClicked(back) || IsKeyPressed(KEY_ESCAPE) || (activate && game->debriefMenuSelected)) {
-        PlaySound(game->menu->click_sfx);
+        PlaySound(game->menu.click_sfx);
         game->currentState = STATE_MENU;
     } else if (uiClicked(retry) || (activate && !game->debriefMenuSelected)) {
-        PlaySound(game->menu->click_sfx);
+        PlaySound(game->menu.click_sfx);
         game->currentState = STATE_GAME;
         resetRun(game);
     }

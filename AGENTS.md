@@ -2,7 +2,7 @@
 
 ## Handoff
 
-This is Kronost037/Space_Shooter, a C17/Raylib top-down arcade shooter. Raad maintains the game and has tested it on Arch Linux. The current goal is a readable, satisfying solo campaign that can later become a competitive multiplayer mode. Start from the current GitHub default branch and check open PRs before making assumptions about which work shipped. Avoid taking older local branches or build artifacts as the source of truth.
+This is Kronost037/sector_siege, a C17/Raylib top-down arcade shooter. Raad maintains the game and has tested it on Arch Linux. The current goal is a readable, satisfying solo campaign that can later become a competitive multiplayer mode. Start from the current GitHub default branch and check open PRs before making assumptions about which work shipped. Avoid taking older local branches or build artifacts as the source of truth.
 
 - PR #11 introduced Sector Siege: separate movement and aim, sector art, Wardens and the Carrier, telegraphs, radar, and a rechargeable pulse.
 - PR #12 added the Aster convoy campaign, four difficulty profiles, timer/audio settings, window-resolution UI, per-world seeds, and real-window flight checks.

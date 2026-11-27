@@ -4,5 +4,5 @@
 #include <stdio.h>
 
 bool replaceSaveFile(const char *temporary, const char *destination);
-FILE *openScoreTemporary(char *path, size_t capacity);
+FILE *openSaveTemporary(char *path, size_t capacity);
 #endif

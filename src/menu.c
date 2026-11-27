@@ -22,7 +22,7 @@ void initializeMenu(Menu *menu) {
 }
 
 void runMenuPhysics(Game *game) {
-    Menu *menu = game->menu;
+    Menu *menu = &game->menu;
     float dt = fminf(GetFrameTime(), 0.1f);
     menu->time += dt;
     bool activity = Vector2LengthSqr(GetMouseDelta()) > 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
@@ -69,8 +69,8 @@ static void drawPatrol(const Game *game, float time) {
     drawTransport(game, freighter, direction(-0.10f), 53, 0.18f);
     uiDockLayer(game->hatch,time);
     float phase = time * 0.51f;
-    bool departing = game->menu->pending == MENU_ACTION_START;
-    float launch = departing ? Clamp(game->menu->transition / 0.48f, 0, 1) : 0;
+    bool departing = game->menu.pending == MENU_ACTION_START;
+    float launch = departing ? Clamp(game->menu.transition / 0.48f, 0, 1) : 0;
     Vector2 nose = direction(-0.49f + 0.035f * sinf(phase));
     Vector2 center = {1005 + 16 * sinf(phase * 0.6f), 462 + 8 * cosf(phase)};
     center = Vector2Add(center, Vector2Scale(nose, 380 * launch * launch));
@@ -90,10 +90,10 @@ static void drawPatrol(const Game *game, float time) {
 }
 
 void drawMenu(Game *game) {
-    float t = game->menu->time;
+    float t = game->menu.time;
     uiBackdrop(game, t);
     // A sparse precursor, a denser stream, then a slow fragmenting bolide.
-    float shower = fmodf(game->menu->idleTime, 58) - 8;
+    float shower = fmodf(game->menu.idleTime, 58) - 8;
     for (int i = 0; i < 29; ++i) {
         bool bolide = i == 28;
         float start = bolide ? 5.4f : (i == 0 ? 0 : 1.8f + i * 0.19f);
@@ -127,8 +127,8 @@ void drawMenu(Game *game) {
     uiTitle(game, "Siege", 94, 231, 148);
     for (int i = 0; i < 4; ++i) {
         Rectangle row = choiceBounds(i);
-        uiAction(game, row, choices[i].label, i == game->menu->focus);
+        uiAction(game, row, choices[i].label, i == game->menu.focus);
     }
-    if (game->menu->pending)
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, Clamp(game->menu->pending == MENU_ACTION_START ? (game->menu->transition - 0.28f) / 0.20f : game->menu->transition / 0.16f, 0, 1)));
+    if (game->menu.pending)
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(UI_INK, Clamp(game->menu.pending == MENU_ACTION_START ? (game->menu.transition - 0.28f) / 0.20f : game->menu.transition / 0.16f, 0, 1)));
 }

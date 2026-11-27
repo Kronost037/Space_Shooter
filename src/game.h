@@ -2,6 +2,7 @@
 #define GAME_H_
 
 #include "core.h"
+#include "menu.h"
 #include "leaderboard.h"
 #include "rules.h"
 
@@ -105,7 +106,7 @@ struct S_game {
     float screenAge;
     float sceneTime;
     FlightScene scene;
-    Menu *menu;
+    Menu menu;
     Font bodyFont;
     Settings settings;
     int settingRow;

@@ -17,9 +17,9 @@ static void submitScoreIfNeeded(Game *game) {
 }
 
 static void updateMenu(Game *game) {
-    if (!menuActionReady(game->menu)) return;
+    if (!menuActionReady(&game->menu)) return;
 
-    switch (menuConsumeAction(game->menu)) {
+    switch (menuConsumeAction(&game->menu)) {
     case MENU_ACTION_START:
         game->playerName[0] = '\0';
         game->currentState = STATE_NAME_ENTRY;
@@ -48,10 +48,10 @@ static void handleGameState(Game *game) {
     case STATE_NAME_ENTRY:
         updateNameEntry(game);
         if (nameEntryBack()) {
-            PlaySound(game->menu->click_sfx);
+            PlaySound(game->menu.click_sfx);
             game->currentState = STATE_MENU;
         } else if (nameEntryLaunch(game)) {
-            PlaySound(game->menu->click_sfx);
+            PlaySound(game->menu.click_sfx);
             game->currentState = STATE_GAME;
             resetRun(game);
             playScene(game, SCENE_LAUNCH);
@@ -79,7 +79,7 @@ static void handleGameState(Game *game) {
             game->currentState = STATE_GAME_OVER;
             game->debriefMenuSelected = false;
             ShowCursor();
-            ResumeMusicStream(game->menu->bg_song);
+            ResumeMusicStream(game->menu.bg_song);
             submitScoreIfNeeded(game);
         }
         break;
@@ -94,7 +94,7 @@ static void handleGameState(Game *game) {
     case STATE_LEADERBOARD:
         leaderboardUpdate(&game->leaderboard);
         if (leaderboardBack()) {
-            PlaySound(game->menu->click_sfx);
+            PlaySound(game->menu.click_sfx);
             game->currentState = STATE_MENU;
         }
         break;
@@ -107,7 +107,7 @@ static void handleGameState(Game *game) {
             game->currentState = STATE_GAME;
         } else if (click && CheckCollisionPointRec(pointer, leaveButton)) {
             game->currentState = STATE_MENU;
-            ResumeMusicStream(game->menu->bg_song);
+            ResumeMusicStream(game->menu.bg_song);
         }
         break;
     }
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
     loadSettings(&game);
     RenderTexture2D frame = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     SetTextureFilter(frame.texture, TEXTURE_FILTER_BILINEAR);
-    PlayMusicStream(game.menu->bg_song);
+    PlayMusicStream(game.menu.bg_song);
 
     while (!WindowShouldClose() && !game.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
         handleGameState(&game);
         game.screenAge = previous == game.currentState ? game.screenAge + GetFrameTime() : 0.0f;
         if (game.currentState != STATE_GAME && game.currentState != STATE_PAUSE) {
-            UpdateMusicStream(game.menu->bg_song);
+            UpdateMusicStream(game.menu.bg_song);
         }
 
         BeginDrawing();

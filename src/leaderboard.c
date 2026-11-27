@@ -128,7 +128,7 @@ void leaderboardLoad(Leaderboard *lb) {
 bool leaderboardSave(const Leaderboard *lb) {
     ensureDirectory();
     char temporary[512];
-    FILE *file = openScoreTemporary(temporary, sizeof temporary);
+    FILE *file = openSaveTemporary(temporary, sizeof temporary);
     if (!file) return false;
     uint32_t header[] = {LB_MAGIC_HEADER, LB_VERSION};
     bool ok = fwrite(header,sizeof header,1,file) == 1 &&

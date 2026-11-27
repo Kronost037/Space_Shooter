@@ -15,12 +15,12 @@ bool replaceSaveFile(const char *temporary, const char *destination) {
 #endif
 }
 
-FILE *openScoreTemporary(char *path, size_t capacity) {
+FILE *openSaveTemporary(char *path, size_t capacity) {
 #ifdef _WIN32
     if (capacity < MAX_PATH || !GetTempFileNameA(".game", "scr", 0, path)) return NULL;
     FILE *file = fopen(path, "wb");
 #else
-    if (snprintf(path, capacity, ".game/score-XXXXXX") >= (int)capacity) return NULL;
+    if (snprintf(path, capacity, ".game/save-XXXXXX") >= (int)capacity) return NULL;
     int fd = mkstemp(path);
     if (fd < 0) return NULL;
     FILE *file = fdopen(fd, "wb");

@@ -343,8 +343,8 @@ int main(void) {
     assert(IsTextureValid(game.hatch) && IsTextureValid(game.crewPortraits));
     snapshot(&game, world, STATE_MENU, "screenshots/menu.png");
     for (int beat = 0; beat < 3; ++beat) {
-        game.menu->idleTime = 13.8f + beat * 0.5f;
-        game.menu->time = game.menu->idleTime;
+        game.menu.idleTime = 13.8f + beat * 0.5f;
+        game.menu.time = game.menu.idleTime;
         snapshot(&game, world, STATE_MENU, TextFormat("screenshots/shower-%d.png",beat));
     }
     snapshot(&game, world, STATE_SETTING, "screenshots/settings.png");

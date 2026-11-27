@@ -157,7 +157,7 @@ void updateElite(Game *game, int index) {
         elite->echo = secondPhase && elite->attack == ATTACK_RING;
         Vector2 toPlayer = Vector2Subtract(game->player.position, elite->ship.position);
         elite->aim = atan2f(toPlayer.y, toPlayer.x);
-        if (elite->attack == ATTACK_RING) elite->aim += elite->cycle % 2 ? -0.40f : 0.40f;
+        if (elite->attack == ATTACK_RING) elite->aim += (elite->cycle / 4) % 2 ? -0.40f : 0.40f;
         elite->phase = ELITE_WARNING;
         elite->duration = elite->attack == ATTACK_LANCE ? 0.95f : 0.80f;
         elite->duration *= flightRules[game->settings.difficulty].warningTime;
@@ -174,7 +174,7 @@ void updateElite(Game *game, int index) {
             firePattern(game, index);
             if (elite->echo) {
                 elite->echo = false;
-                elite->aim -= 0.72f;
+                elite->aim += (elite->cycle / 4) % 2 ? 0.72f : -0.72f;
                 elite->duration = 0.72f * flightRules[game->settings.difficulty].warningTime;
                 elite->time = elite->duration;
                 PlaySound(game->warningSound);

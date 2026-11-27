@@ -9,10 +9,10 @@ enum { ROW_DIFFICULTY, ROW_TIMER, ROW_DURATION, ROW_VOLUME, ROW_MUSIC, ROW_EFFEC
 
 static void applyAudio(const Game *game) {
     SetMasterVolume(game->settings.volume / 100.0f);
-    SetMusicVolume(game->menu->bg_song, game->settings.music / 100.0f);
+    SetMusicVolume(game->menu.bg_song, game->settings.music / 100.0f);
     float gain = game->settings.effects / 100.0f;
-    SetSoundVolume(game->menu->hover_sfx, gain * 0.55f);
-    SetSoundVolume(game->menu->click_sfx, gain * 0.65f);
+    SetSoundVolume(game->menu.hover_sfx, gain * 0.55f);
+    SetSoundVolume(game->menu.click_sfx, gain * 0.65f);
     SetSoundVolume(game->laserSound, gain * 0.32f);
     SetSoundVolume(game->warningSound, gain * 0.44f);
     SetSoundVolume(game->damageSound, gain * 0.47f);
@@ -38,13 +38,14 @@ void loadSettings(Game *game) {
 
 static void saveSettings(const Settings *s) {
     if (!DirectoryExists(".game")) MakeDirectory(".game");
-    FILE *f = fopen(SETTINGS_PATH ".tmp", "w");
+    char temporary[512];
+    FILE *f = openSaveTemporary(temporary, sizeof temporary);
     if (!f) return;
     int written = fprintf(f, "v1 %d %d %d %d %d %d\n", (int)s->difficulty,
                           (int)s->timerEnabled, s->timerMinutes, s->volume, s->music, s->effects);
     int closed = fclose(f);
-    if (written > 0 && closed == 0 && replaceSaveFile(SETTINGS_PATH ".tmp", SETTINGS_PATH)) return;
-    remove(SETTINGS_PATH ".tmp");
+    if (written > 0 && closed == 0 && replaceSaveFile(temporary, SETTINGS_PATH)) return;
+    remove(temporary);
 }
 
 static Rectangle control(int row, bool plus) {
@@ -64,7 +65,7 @@ static void adjust(Game *game, int row, int dir) {
     case ROW_EFFECTS: s->effects = (int)Clamp(s->effects + dir * 5, 0, 100); break;
     }
     applyAudio(game);
-    PlaySound(game->menu->click_sfx);
+    PlaySound(game->menu.click_sfx);
 }
 
 void updateSettings(Game *game) {
@@ -77,7 +78,7 @@ void updateSettings(Game *game) {
     if (IsKeyPressed(KEY_ESCAPE) || uiClicked(done) ||
         (*row == ROW_DONE && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))) {
         saveSettings(&game->settings);
-        PlaySound(game->menu->click_sfx);
+        PlaySound(game->menu.click_sfx);
         game->currentState = STATE_MENU;
         return;
     }
