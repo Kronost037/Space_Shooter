@@ -1,4 +1,6 @@
-Menu Music : [Pixabay](https://pixabay.com/music/video-games-gamer-menu-431351/)
+Menu music: [Gamer Menu via Pixabay](https://pixabay.com/music/video-games-gamer-menu-431351/), under the [Pixabay Content License](https://pixabay.com/service/license/).
+
+The desktop downloads include Raylib under its zlib license. See `licenses/raylib.txt` in the archive.
 
 Sector Siege pilot, scout, Warden, and Carrier PNGs are original generated
 game art for this project. The Sector Siege shot, warning, damage, impact, and pulse
